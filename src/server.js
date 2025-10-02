@@ -25,13 +25,21 @@ const app = express();
 const port = process.env.PORT || 4002;
 
 // Configurações do CORS
+const allowedOrigins = [
+  'http://localhost:4002', // dev local
+  process.env.CORS_ORIGIN // prod
+];
+
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
-
-app.use(express.json());
-app.use(cookieParser());
 
 // Servir arquivos estáticos da pasta public
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
