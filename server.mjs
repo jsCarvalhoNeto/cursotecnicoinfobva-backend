@@ -26,7 +26,7 @@ app.use((req, res, next) => {
 
 // Configurações do CORS para permitir requisições do seu frontend
 app.use(cors({
-  origin: true,
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true
 }));
 app.use(express.json());
