@@ -25,11 +25,52 @@ const app = express();
 const port = process.env.PORT || 4002;
 
 // Configurações do CORS
+const allowedOrigins = [
+  'http://localhost:3000', // React dev server
+  'http://localhost:4002', // dev local
+  'http://localhost:5173', // Vite dev server
+  'http://localhost:8080', // possível frontend
+  process.env.CORS_ORIGIN // Variável de ambiente adicional
+].filter(Boolean); // Remove undefined values
+
+console.log('🌐 CORS - Origens permitidas:', allowedOrigins);
+
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    console.log('🔍 CORS - Verificando origem:', origin);
+    
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) {
+      console.log('✅ CORS - Permitindo requisição sem origem');
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ CORS - Origem permitida:', origin);
+      return callback(null, true);
+    }
+    
+    // For development, be more permissive with localhost
+    if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+      console.log('✅ CORS - Permitindo localhost em desenvolvimento:', origin);
+      return callback(null, true);
+    }
+    
+    // Allow Railway domains (production)
+    if (origin.includes('railway.app') || origin.includes('up.railway.app')) {
+      console.log('✅ CORS - Permitindo domínio Railway:', origin);
+      return callback(null, true);
+    }
+    
+    console.log('❌ CORS - Origem não permitida:', origin);
+    console.log('📋 CORS - Origens válidas:', allowedOrigins);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 
+// Middleware para parsing JSON e cookies
 app.use(express.json());
 app.use(cookieParser());
 
