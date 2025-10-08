@@ -18,7 +18,12 @@ export const requireAuth = async (req, res, next) => {
         host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || 'informatica_wave'
+        database: process.env.DB_NAME || 'informatica_wave',
+        port: process.env.DB_PORT || 3306,
+        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+        connectTimeout: 60000, // 60 segundos
+        acquireTimeout: 60000, // 60 segundos
+        timeout: 60000 // 60 segundos
       };
       
       const connection = await db.default.createConnection(dbConfig);
@@ -141,7 +146,12 @@ export const checkResourceAccess = (resourceType) => {
           host: process.env.DB_HOST || 'localhost',
           user: process.env.DB_USER || 'root',
           password: process.env.DB_PASSWORD || '',
-          database: process.env.DB_NAME || 'informatica_wave'
+          database: process.env.DB_NAME || 'informatica_wave',
+          port: process.env.DB_PORT || 3306,
+          ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+          connectTimeout: 600, // 60 segundos
+          acquireTimeout: 60000, // 60 segundos
+          timeout: 60000 // 60 segundos
         };
         
         const connection = await db.default.createConnection(dbConfig);

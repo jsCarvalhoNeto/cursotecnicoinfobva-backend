@@ -235,13 +235,18 @@ export const getCalendarEvents = async (req, res) => {
     }
     
     // Buscar eventos relacionados às disciplinas do professor
+    const teacherId = parseInt(id);
+    if (isNaN(teacherId)) {
+      return res.status(400).json({ error: 'ID do professor inválido.' });
+    }
+
     const [rows] = await req.db.execute(`
       SELECT c.id, c.title, c.date, c.time, c.type, c.description, s.id as subject_id, s.name as subject_name
       FROM calendar_events c
       LEFT JOIN subjects s ON c.subject_id = s.id
       WHERE s.teacher_id = ? OR c.created_by = ?
       ORDER BY c.date, c.time
-    `, [id, id]);
+    `, [teacherId, teacherId]);
 
     console.log('Eventos encontrados:', rows.length);
     res.status(200).json(rows);
