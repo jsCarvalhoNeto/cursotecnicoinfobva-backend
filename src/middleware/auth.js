@@ -12,32 +12,17 @@ export const requireAuth = async (req, res, next) => {
 
   try {
     if (req.dbType === 'mysql') {
-      // Lógica para MySQL real
-      const db = await import('mysql2/promise');
-        const dbConfig = {
-          host: process.env.DB_HOST || 'localhost',
-          user: process.env.DB_USER || 'root',
-          password: process.env.DB_PASSWORD || '',
-          database: process.env.DB_NAME || 'informatica_wave',
-          port: process.env.DB_PORT || 3306,
-          ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-          connectTimeout: 600, // 60 segundos
-          acquireTimeout: 60000, // 60 segundos
-          timeout: 60000, // 60 segundos
-          multipleStatements: true
-        };
-      
-      const connection = await db.default.createConnection(dbConfig);
+      // Lógica para MySQL real - usar a conexão já estabelecida
       try {
         // Verificar se o usuário existe e tem papéis atribuídos
-        const [users] = await connection.execute('SELECT id FROM users WHERE id = ?', [sessionId]);
+        const [users] = await req.db.execute('SELECT id FROM users WHERE id = ?', [sessionId]);
         
         if (users.length === 0) {
           return res.status(401).json({ error: 'Sessão inválida' });
         }
         
         // Verificar se o usuário tem pelo menos um papel atribuído
-        const [roles] = await connection.execute('SELECT role FROM user_roles WHERE user_id = ?', [sessionId]);
+        const [roles] = await req.db.execute('SELECT role FROM user_roles WHERE user_id = ?', [sessionId]);
         
         if (roles.length === 0) {
           return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
@@ -47,25 +32,31 @@ export const requireAuth = async (req, res, next) => {
         req.userRoles = roles.map(role => role.role);
         req.userRole = roles[0].role;
         next();
-      } finally {
-        await connection.end();
+      } catch (error) {
+        console.error('Erro na verificação de autenticação com banco MySQL:', error);
+        res.status(500).json({ error: 'Erro na verificação de autenticação.' });
       }
     } else {
       // Lógica para banco de dados mockado
-      const user = req.db.getUserById(sessionId);
-      if (!user) {
-        return res.status(401).json({ error: 'Sessão inválida' });
+      try {
+        const user = req.db.getUserById(sessionId);
+        if (!user) {
+          return res.status(401).json({ error: 'Sessão inválida' });
+        }
+        
+        const roles = req.db.getRolesByUserId(sessionId);
+        if (roles.length === 0) {
+          return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
+        }
+        
+        req.userId = sessionId;
+        req.userRoles = roles.map(role => role.role);
+        req.userRole = roles[0].role;
+        next();
+      } catch (error) {
+        console.error('Erro na verificação de autenticação com banco mockado:', error);
+        res.status(500).json({ error: 'Erro na verificação de autenticação.' });
       }
-      
-      const roles = req.db.getRolesByUserId(sessionId);
-      if (roles.length === 0) {
-        return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
-      }
-      
-      req.userId = sessionId;
-      req.userRoles = roles.map(role => role.role);
-      req.userRole = roles[0].role;
-      next();
     }
   } catch (error) {
     console.error('Erro na verificação de autenticação:', error);
@@ -141,21 +132,7 @@ export const checkResourceAccess = (resourceType) => {
 
     try {
       if (req.dbType === 'mysql') {
-        // Lógica para MySQL real
-        const db = await import('mysql2/promise');
-        const dbConfig = {
-          host: process.env.DB_HOST || 'localhost',
-          user: process.env.DB_USER || 'root',
-          password: process.env.DB_PASSWORD || '',
-          database: process.env.DB_NAME || 'informatica_wave',
-          port: process.env.DB_PORT || 3306,
-          ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-          connectTimeout: 600, // 60 segundos
-          acquireTimeout: 60000, // 60 segundos
-          timeout: 60000 // 60 segundos
-        };
-        
-        const connection = await db.default.createConnection(dbConfig);
+        // Lógica para MySQL real - usar a conexão já estabelecida
         try {
           let hasAccess = false;
           let ownerCheckQuery = '';
@@ -203,7 +180,7 @@ export const checkResourceAccess = (resourceType) => {
           }
 
           if (ownerCheckQuery) {
-            const [result] = await connection.execute(ownerCheckQuery, queryParams);
+            const [result] = await req.db.execute(ownerCheckQuery, queryParams);
             hasAccess = result.length > 0;
           }
 
@@ -212,13 +189,19 @@ export const checkResourceAccess = (resourceType) => {
           }
 
           next();
-        } finally {
-          await connection.end();
+        } catch (error) {
+          console.error('Erro na verificação de acesso ao recurso com banco MySQL:', error);
+          res.status(500).json({ error: 'Erro na verificação de acesso ao recurso.' });
         }
       } else {
         // Para mock, vamos permitir acesso básico (você pode implementar lógica mais complexa se necessário)
         // Por enquanto, vamos assumir que o usuário tem permissão básica
-        next();
+        try {
+          next();
+        } catch (error) {
+          console.error('Erro na verificação de acesso ao recurso com banco mockado:', error);
+          res.status(500).json({ error: 'Erro na verificação de acesso ao recurso.' });
+        }
       }
     } catch (error) {
       console.error('Erro na verificação de acesso ao recurso:', error);
