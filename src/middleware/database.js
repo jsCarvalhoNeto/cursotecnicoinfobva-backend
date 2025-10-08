@@ -14,6 +14,10 @@ const dbConnectionOptions = process.env.DATABASE_URL
       database: process.env.DB_NAME || 'josedo64_sisctibalbina',
       port: process.env.DB_PORT || 3306,
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      connectTimeout: 60000,
+      acquireTimeout: 60000,
+      timeout: 6000,
+      multipleStatements: true
     };
 
 // Função para testar conexão com MySQL e verificar se tabelas existem

@@ -64,7 +64,7 @@ export const createActivityGrade = async (req, res) => {
     // Inserir a nova nota - usando apenas colunas que existem na tabela
     const insertQuery = `
       INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members)
-      VALUES (?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
     const [result] = await req.db.execute(insertQuery, [
       activity_id,
@@ -733,11 +733,11 @@ export const submitStudentActivity = async (req, res) => {
     console.log('Inserindo submissão da atividade:', { activity_id, enrollment_id, student_name, team_members, file_path, file_name });
     const insertQuery = `
       INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members, file_path, file_name)
-      VALUES (?, ?, NULL, NULL, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     console.log('Query de inserção:', insertQuery);
-    console.log('Parâmetros:', [activity_id, enrollment_id, student_name, team_members || null, file_path, file_name]);
-    const [result] = await req.db.execute(insertQuery, [activity_id, enrollment_id, student_name, team_members || null, file_path, file_name]);
+    console.log('Parâmetros:', [activity_id, enrollment_id, null, null, student_name, team_members || null, file_path, file_name]);
+    const [result] = await req.db.execute(insertQuery, [activity_id, enrollment_id, null, null, student_name, team_members || null, file_path, file_name]);
     console.log('Submissão inserida com ID:', result.insertId);
 
     // Retorna a submissão criada

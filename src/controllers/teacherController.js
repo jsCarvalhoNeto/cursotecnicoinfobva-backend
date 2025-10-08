@@ -220,11 +220,12 @@ export const getCalendarEvents = async (req, res) => {
 
   try {
     // Verificar se a tabela calendar_events existe
+    const dbName = process.env.DB_NAME || 'railway';
     const [tableCheck] = await req.db.execute(`
       SELECT COUNT(*) as count 
       FROM information_schema.tables 
       WHERE table_schema = ? AND table_name = 'calendar_events'
-    `, [process.env.DB_NAME]);
+    `, [dbName]);
     
     console.log('Verificação da tabela calendar_events:', tableCheck[0].count);
     
