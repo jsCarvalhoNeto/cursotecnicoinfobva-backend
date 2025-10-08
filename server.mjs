@@ -71,11 +71,6 @@ import { requireAuth, requireStudent, requireTeacher } from './src/middleware/au
 import { authController } from './src/controllers/authController.js';
 import { getActivitiesByStudent, getActivitiesBySubject, createActivity, getActivityById, getActivitiesByTeacher, updateActivity, deleteActivity, submitStudentActivity, getActivityGrades, deleteActivityGrade, updateActivityGrade, createActivityGrade, getActivityGradesByStudent } from './src/controllers/activityController.js';
 
-// Rotas de autenticação
-app.post('/api/auth/register', transactionMiddleware, authController.register);
-app.post('/api/auth/login', authController.login);
-app.get('/api/auth/me', requireAuth, authController.getMe);
-app.post('/api/auth/logout', authController.logout);
 
 // Rotas de atividades
 app.get('/api/activities/student', requireAuth, requireStudent, getActivitiesByStudent);
@@ -98,6 +93,7 @@ import studentRoutes from './src/routes/students.js';
 import teacherRoutes from './src/routes/teachers.js';
 import userRoutes from './src/routes/users.js';
 import activityRoutes from './src/routes/activities.js';
+import authRoutes from './src/routes/auth.js';
 
 // Usar rotas modulares
 app.use('/api/subjects', requireAuth, subjectRoutes);
@@ -105,6 +101,7 @@ app.use('/api/students', requireAuth, studentRoutes);
 app.use('/api/teachers', requireAuth, teacherRoutes);
 app.use('/api/users', requireAuth, userRoutes);
 app.use('/api/activities', requireAuth, activityRoutes);
+app.use('/api', authRoutes);
 
 // Middleware para verificar autenticação (opcional) - mantido para compatibilidade
 // Agora usamos o middleware do src/middleware/auth.js que está sendo importado acima
