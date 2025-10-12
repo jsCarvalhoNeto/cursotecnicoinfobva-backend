@@ -266,10 +266,10 @@ app.all('*', (req, res, next) => {
       console.log('🔄 Redirecionando endpoint de autenticação:', authEndpoint);
       
       // Atualizar a URL da requisição para o endpoint correto
-      req.url = '/api' + authEndpoint;
-      req.originalUrl = '/api' + authEndpoint;
+      req.url = authEndpoint; // Usar o endpoint original sem /api/ prefixo
+      req.originalUrl = authEndpoint;
       
-      // Encaminhar para as rotas de autenticação
+      // Encaminhar para as rotas de autenticação (que já estão montadas em /api/auth)
       authRoutes(req, res);
       return;
     }
