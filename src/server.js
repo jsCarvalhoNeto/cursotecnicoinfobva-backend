@@ -34,7 +34,8 @@ const allowedOrigins = [
   'http://localhost:5173', // Vite dev server
   'http://localhost:8080', // possível frontend
   process.env.CORS_ORIGIN, // Variável de ambiente adicional
-  'https://cursotecnicobva.up.railway.app', // Domínio do frontend no Railway
+  'https://cursotecnicobva.up.railway.app', // Domínio do frontend no Railway (antigo)
+  'https://infobva.up.railway.app', // Domínio do frontend no Railway (novo)
   'https://cursotecnicobva-backend-production.up.railway.app' // Domínio do backend no Railway
 ].filter(Boolean); // Remove undefined values
 
