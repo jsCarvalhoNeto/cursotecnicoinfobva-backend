@@ -110,20 +110,18 @@ app.use((req, res, next) => {
     const authMatch = originalUrl.match(/\/auth\/(login|logout|register|me)/);
     if (authMatch) {
       const authEndpoint = authMatch[0];
-      console.log('🔄 Encaminhando endpoint de autenticação:', authEndpoint);
+      console.log('🔄 Detectada rota de autenticação mal formada:', authEndpoint);
       
-      // Corrigir a URL para que corresponda ao padrão esperado pelas rotas montadas
-      // A rota original era /api/auth/login, então vamos extrair corretamente
-      const correctedUrl = originalUrl.replace(/.*\/auth\//, '/api/auth/');
+      // Corrigir a URL para o formato correto /api/auth/endpoint
+      const correctedUrl = '/api' + authEndpoint;
       console.log('🔄 URL corrigida para:', correctedUrl);
       
       // Atualizar a URL da requisição
       req.url = correctedUrl;
       req.originalUrl = correctedUrl;
       
-      // Agora chamar as rotas de autenticação diretamente
-      authRoutes(req, res);
-      return; // Não continuar com o pipeline normal
+      // Permitir que a requisição continue normalmente pelo pipeline
+      // O middleware de banco de dados será aplicado automaticamente
     }
   }
   
