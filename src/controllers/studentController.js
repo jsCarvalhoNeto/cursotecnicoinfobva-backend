@@ -201,28 +201,42 @@ export const studentController = {
 
         // Se a série foi alterada, atualizar as matrículas automaticamente
         if (grade !== undefined) {
-          console.log('Atualizando matrículas do aluno para a nova série:', grade);
-          
-          // Remover todas as matrículas anteriores
-          await req.db.execute(
-            'DELETE FROM enrollments WHERE student_id = ?',
+          // Buscar a série atual do aluno
+          const [currentProfile] = await req.db.execute(
+            'SELECT grade FROM profiles WHERE user_id = ?',
             [id]
           );
-          
-          // Se a série não for nula, adicionar novas matrículas
-          if (grade) {
-            const [subjects] = await req.db.execute(
-              'SELECT id FROM subjects WHERE grade = ?',
-              [grade]
-            );
+
+          const currentGrade = currentProfile.length > 0 ? currentProfile[0].grade : null;
+
+          // Apenas atualizar matrículas se a série realmente mudou
+          if (grade !== currentGrade) {
+            console.log('Atualizando matrículas do aluno para a nova série:', grade);
             
-            for (const subject of subjects) {
-              await req.db.execute(
-                'INSERT IGNORE INTO enrollments (student_id, subject_id) VALUES (?, ?)',
-                [id, subject.id]
-              );
+            // Remover matrículas de disciplinas associadas à série anterior
+            if (currentGrade) {
+              await req.db.execute(`
+                DELETE e FROM enrollments e
+                JOIN subjects s ON e.subject_id = s.id
+                WHERE e.student_id = ? AND s.grade = ?
+              `, [id, currentGrade]);
             }
-            console.log(`Matrículas atualizadas para ${subjects.length} disciplinas da série ${grade}`);
+            
+            // Se a nova série não for nula, adicionar novas matrículas
+            if (grade) {
+              const [subjects] = await req.db.execute(
+                'SELECT id FROM subjects WHERE grade = ?',
+                [grade]
+              );
+              
+              for (const subject of subjects) {
+                await req.db.execute(
+                  'INSERT IGrove INTO enrollments (student_id, subject_id) VALUES (?, ?)',
+                  [id, subject.id]
+                );
+              }
+              console.log(`Matrículas atualizadas para ${subjects.length} disciplinas da série ${grade}`);
+            }
           }
         }
       } else {
@@ -353,6 +367,121 @@ export const studentController = {
     } catch (error) {
       console.error('Erro ao buscar alunos por série:', error);
       res.status(500).json({ error: 'Erro ao buscar alunos por série.' });
+    }
+  },
+
+  // Rota para matricular estudante em uma disciplina
+  enrollInSubject: async (req, res) => {
+    const { id } = req.params; // student_id
+    const { subjectId } = req.body;
+
+    if (!subjectId) {
+      return res.status(400).json({ error: 'ID da disciplina é obrigatório.' });
+    }
+
+    try {
+      if (req.dbType === 'mysql') {
+        // Verificar se o estudante existe
+        const [studentRows] = await req.db.execute(
+          'SELECT id FROM users u JOIN user_roles ur ON u.id = ur.user_id WHERE u.id = ? AND ur.role = "student"',
+          [id]
+        );
+        if (studentRows.length === 0) {
+          return res.status(404).json({ error: 'Estudante não encontrado.' });
+        }
+
+        // Verificar se a disciplina existe
+        const [subjectRows] = await req.db.execute(
+          'SELECT id FROM subjects WHERE id = ?',
+          [subjectId]
+        );
+        if (subjectRows.length === 0) {
+          return res.status(404).json({ error: 'Disciplina não encontrada.' });
+        }
+
+        // Tentar inserir a matrícula (ignorar se já existir)
+        const [result] = await req.db.execute(
+          'INSERT IGNORE INTO enrollments (student_id, subject_id) VALUES (?, ?)',
+          [id, subjectId]
+        );
+
+        if (result.affectedRows > 0) {
+          res.status(201).json({ success: true, message: 'Estudante matriculado com sucesso.' });
+        } else {
+          res.status(200).json({ success: true, message: 'Estudante já estava matriculado nesta disciplina.' });
+        }
+      } else {
+        // Lógica para banco de dados mockado
+        res.status(200).json({ success: true, message: 'Matrícula simulada com sucesso.' });
+      }
+    } catch (error) {
+      console.error('Erro ao matricular estudante:', error);
+      res.status(500).json({ error: 'Erro ao matricular estudante na disciplina.' });
+    }
+  },
+
+  // Rota para remover matrícula de estudante em uma disciplina
+  removeFromSubject: async (req, res) => {
+    const { id } = req.params; // student_id
+    const { subjectId } = req.body;
+
+    if (!subjectId) {
+      return res.status(400).json({ error: 'ID da disciplina é obrigatório.' });
+    }
+
+    try {
+      if (req.dbType === 'mysql') {
+        // Verificar se a matrícula existe
+        const [enrollmentRows] = await req.db.execute(
+          'SELECT id FROM enrollments WHERE student_id = ? AND subject_id = ?',
+          [id, subjectId]
+        );
+        if (enrollmentRows.length === 0) {
+          return res.status(404).json({ error: 'Matrícula não encontrada.' });
+        }
+
+        // Remover a matrícula
+        await req.db.execute(
+          'DELETE FROM enrollments WHERE student_id = ? AND subject_id = ?',
+          [id, subjectId]
+        );
+
+        res.status(200).json({ success: true, message: 'Matrícula removida com sucesso.' });
+      } else {
+        // Lógica para banco de dados mockado
+        res.status(200).json({ success: true, message: 'Remoção de matrícula simulada com sucesso.' });
+      }
+    } catch (error) {
+      console.error('Erro ao remover matrícula do estudante:', error);
+      res.status(500).json({ error: 'Erro ao remover matrícula do estudante.' });
+    }
+  },
+
+  // Rota para buscar todas as disciplinas disponíveis para matrícula
+  getAvailableSubjects: async (req, res) => {
+    const { id } = req.params; // student_id
+
+    try {
+      if (req.dbType === 'mysql') {
+        // Buscar todas as disciplinas que o estudante NÃO está matriculado
+        const [rows] = await req.db.execute(`
+          SELECT s.*, p.full_name as teacher_name
+          FROM subjects s
+          LEFT JOIN profiles p ON s.teacher_id = p.user_id
+          WHERE s.id NOT IN (
+            SELECT e.subject_id FROM enrollments e WHERE e.student_id = ?
+          )
+          ORDER BY s.name
+        `, [id]);
+
+        res.status(200).json(rows);
+      } else {
+        // Lógica para banco de dados mockado
+        res.status(200).json([]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar disciplinas disponíveis:', error);
+      res.status(500).json({ error: 'Erro ao buscar disciplinas disponíveis.' });
     }
   }
 };

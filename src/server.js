@@ -11,9 +11,12 @@ import teacherRoutes from './routes/teachers.js';
 import subjectRoutes from './routes/subjects.js';
 import userRoutes from './routes/users.js';
 import activityRoutes from './routes/activities.js';
+import contentRoutes from './routes/content.js';
+import resourceRoutes from './routes/resources.js';
+import contactRoutes from './routes/contacts.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
-import { dbConnectionMiddleware } from './middleware/database.js';
+import { dbConnectionMiddleware, transactionMiddleware } from './middleware/database.js';
 
 dotenv.config();
 
@@ -79,6 +82,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // Middleware de conexão com banco de dados
 app.use(dbConnectionMiddleware);
+app.use(transactionMiddleware);
 
 // Rotas
 app.use('/api', authRoutes);
@@ -87,6 +91,9 @@ app.use('/api/teachers', teacherRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/activities', activityRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/resources', resourceRoutes);
+app.use('/api', contactRoutes);
 
 // Rota de teste
 app.get('/api', (req, res) => {

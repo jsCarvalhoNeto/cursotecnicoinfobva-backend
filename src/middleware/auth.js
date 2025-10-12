@@ -4,62 +4,85 @@ dotenv.config();
 
 // Middleware para verificar autenticação
 export const requireAuth = async (req, res, next) => {
+  console.log('🔍 requireAuth - Iniciando verificação de autenticação');
+  console.log('🔍 requireAuth - Método:', req.method);
+  console.log('🔍 requireAuth - URL:', req.url);
+  console.log('🔍 requireAuth - Headers:', req.headers);
+  console.log('🔍 requireAuth - Cookie sessionId:', req.cookies.sessionId);
+  console.log('🔍 requireAuth - Banco de dados:', req.db ? 'disponível' : 'não disponível');
+  console.log('🔍 requireAuth - Tipo de banco de dados:', req.dbType);
+  
   const sessionId = req.cookies.sessionId;
   
   if (!sessionId) {
+    console.log('❌ requireAuth - Nenhum sessionId encontrado nos cookies');
     return res.status(401).json({ error: 'Não autenticado' });
   }
 
   try {
     if (req.dbType === 'mysql') {
       // Lógica para MySQL real - usar a conexão já estabelecida
+      console.log('🔍 requireAuth - Usando banco de dados MySQL real');
       try {
         // Verificar se o usuário existe e tem papéis atribuídos
         const [users] = await req.db.execute('SELECT id FROM users WHERE id = ?', [sessionId]);
+        console.log('🔍 requireAuth - Resultado busca usuário:', users.length, 'usuários encontrados');
         
         if (users.length === 0) {
+          console.log('❌ requireAuth - Usuário não encontrado com ID:', sessionId);
           return res.status(401).json({ error: 'Sessão inválida' });
         }
         
         // Verificar se o usuário tem pelo menos um papel atribuído
         const [roles] = await req.db.execute('SELECT role FROM user_roles WHERE user_id = ?', [sessionId]);
+        console.log('🔍 requireAuth - Resultado busca papéis:', roles.length, 'papéis encontrados');
         
         if (roles.length === 0) {
+          console.log('❌ requireAuth - Usuário não tem papéis atribuídos:', sessionId);
           return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
         }
         
+        req.user = { id: sessionId, db: req.db };
         req.userId = sessionId;
         req.userRoles = roles.map(role => role.role);
         req.userRole = roles[0].role;
+        console.log('✅ requireAuth - Autenticação bem-sucedida para usuário:', sessionId, 'Papéis:', req.userRoles);
         next();
       } catch (error) {
-        console.error('Erro na verificação de autenticação com banco MySQL:', error);
+        console.error('❌ Erro na verificação de autenticação com banco MySQL:', error);
         res.status(500).json({ error: 'Erro na verificação de autenticação.' });
       }
     } else {
       // Lógica para banco de dados mockado
+      console.log('🔍 requireAuth - Usando banco de dados mockado');
       try {
         const user = req.db.getUserById(sessionId);
+        console.log('🔍 requireAuth - Resultado busca usuário mockado:', user ? 'encontrado' : 'não encontrado');
         if (!user) {
+          console.log('❌ requireAuth - Usuário não encontrado no banco mockado:', sessionId);
           return res.status(401).json({ error: 'Sessão inválida' });
         }
         
         const roles = req.db.getRolesByUserId(sessionId);
+        console.log('🔍 requireAuth - Resultado busca papéis mockado:', roles.length, 'papéis encontrados');
         if (roles.length === 0) {
+          console.log('❌ requireAuth - Usuário não tem papéis no banco mockado:', sessionId);
           return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
         }
         
+        req.user = { id: sessionId, db: req.db };
         req.userId = sessionId;
         req.userRoles = roles.map(role => role.role);
         req.userRole = roles[0].role;
+        console.log('✅ requireAuth - Autenticação mockada bem-sucedida para usuário:', sessionId, 'Papéis:', req.userRoles);
         next();
       } catch (error) {
-        console.error('Erro na verificação de autenticação com banco mockado:', error);
+        console.error('❌ Erro na verificação de autenticação com banco mockado:', error);
         res.status(500).json({ error: 'Erro na verificação de autenticação.' });
       }
     }
   } catch (error) {
-    console.error('Erro na verificação de autenticação:', error);
+    console.error('❌ Erro geral na verificação de autenticação:', error);
     res.status(500).json({ error: 'Erro na verificação de autenticação.' });
   }
 };
