@@ -34,10 +34,10 @@ const allowedOrigins = [
   'http://localhost:5173', // Vite dev server
   'http://localhost:8080', // possível frontend
   process.env.CORS_ORIGIN, // Variável de ambiente adicional
-  'https://cursotecnicobva.up.railway.app', // Domínio do frontend no Railway (antigo)
+  'https://cursotecnicoinfobva.up.railway.app', // Domínio do frontend no Railway (antigo)
   'https://infobva.up.railway.app', // Domínio do frontend no Railway (novo)
-  'https://cursotecnicobva-backend-production.up.railway.app', // Domínio do backend no Railway
-  'https://cursotecnicobva-frontend-production.up.railway.app', // Domínio do frontend no Railway (corrigido)
+  'https://cursotecnicoinfobva-backend-production.up.railway.app', // Domínio do backend no Railway
+  'https://cursotecnicoinfobva-frontend-production.up.railway.app', // Domínio do frontend no Railway (corrigido)
   'https://*.railway.app', // Permitir qualquer subdomínio do Railway
   'https://*.up.railway.app' // Permitir qualquer subdomínio up.railway.app
 ].filter(Boolean); // Remove undefined values
@@ -73,15 +73,47 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // Verificar se é uma requisição proxy (como parece estar acontecendo no Railway)
+    if (origin.includes('infobva.up.railway.app') && origin.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
+      console.log('✅ CORS - Permitindo requisição proxy Railway:', origin);
+      return callback(null, true);
+    }
+    
     console.log('❌ CORS - Origem não permitida:', origin);
     console.log('📋 CORS - Origens válidas:', allowedOrigins);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Set-Cookie', 'Content-Length', 'Content-Type', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Forwarded-For', 'X-Forwarded-Host', 'X-Real-IP'],
+  exposedHeaders: ['Set-Cookie', 'Content-Length', 'Content-Type', 'X-Requested-With', 'Location'],
+  optionsSuccessStatus: 200
 }));
+
+// Middleware para lidar com requisições proxy do Railway
+app.use((req, res, next) => {
+  // Verificar se é uma requisição proxy
+  const forwardedHost = req.get('X-Forwarded-Host');
+  const realHost = req.get('Host');
+  const originalUrl = req.originalUrl;
+  
+  console.log('🔄 Proxy - Host original:', realHost);
+  console.log('🔄 Proxy - X-Forwarded-Host:', forwardedHost);
+  console.log('🔄 Proxy - URL original:', originalUrl);
+  
+  // Se houver problema de proxy, tentar corrigir
+  if (forwardedHost && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
+    // Remover o domínio do backend da URL original se estiver incorretamente incluído
+    const correctedUrl = originalUrl.replace(/cursotecnicoinfobva-backend-production\.up\.railway\.app/, '');
+    if (correctedUrl !== originalUrl) {
+      console.log('🔄 Proxy - URL corrigida:', correctedUrl);
+      req.originalUrl = correctedUrl;
+      req.url = correctedUrl;
+    }
+  }
+  
+  next();
+});
 
 // Middleware para parsing JSON e cookies
 app.use(express.json());
