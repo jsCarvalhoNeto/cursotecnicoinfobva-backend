@@ -205,12 +205,23 @@ app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 // Middleware de conexão com banco de dados - aplicar apenas após rotas de autenticação
 // para evitar problemas com transações em operações de login/logout
 
-// Rotas de autenticação (sem middleware de transação)
-app.use('/api/auth', authRoutes);
-
-// Aplicar middleware de banco de dados para outras rotas
+// Aplicar middleware de banco de dados para todas as rotas, exceto autenticação
 app.use(dbConnectionMiddleware);
 app.use(transactionMiddleware);
+
+// Rotas de autenticação (sem middleware de transação - deve vir DEPOIS)
+// Para contornar o problema, vamos remover o middleware de transação para rotas de autenticação
+app.use('/api/auth', (req, res, next) => {
+  // Remover o middleware de transação temporariamente para rotas de autenticação
+  const originalEnd = res.end;
+  res.end = function(chunk, encoding, callback) {
+    // Não aplicar transação para rotas de autenticação
+    res.end = originalEnd;
+    return res.end.call(this, chunk, encoding, callback);
+  };
+  authRoutes(req, res, next);
+});
+
 
 // Rotas de fallback para lidar com URLs mal formadas do proxy do Railway
 app.all('/cursotecnicoinfobva-backend-production.up.railway.app/*', (req, res) => {
