@@ -196,6 +196,16 @@ app.use(cookieParser());
 // Servir arquivos estáticos da pasta public
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
+// Middleware de conexão com banco de dados - aplicar apenas após rotas de autenticação
+// para evitar problemas com transações em operações de login/logout
+
+// Rotas de autenticação (sem middleware de transação)
+app.use('/api/auth', authRoutes);
+
+// Aplicar middleware de banco de dados para outras rotas
+app.use(dbConnectionMiddleware);
+app.use(transactionMiddleware);
+
 // Rotas de fallback para lidar com URLs mal formadas do proxy do Railway
 app.all('/cursotecnicoinfobva-backend-production.up.railway.app/*', (req, res) => {
   console.log('🔄 Rota de fallback acionada para:', req.originalUrl);
@@ -246,54 +256,6 @@ app.all('/cursotecnicoinfobva-backend-production.up.railway.app/*', (req, res) =
     res.status(404).json({ error: 'Rota não encontrada' });
   }
 });
-
-// Rota de fallback específica para o padrão exato do erro do usuário
-app.all('*', (req, res, next) => {
-  const originalUrl = req.originalUrl;
-  
-  // Verificar se a URL original contém o padrão exato do erro
-  if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
-    console.log('🔄 Detectado padrão de proxy do Railway:', originalUrl);
-    
-    // Tentar extrair a rota real de autenticação
-    const authMatch = originalUrl.match(/\/auth\/(login|logout|register|me)/);
-    if (authMatch) {
-      const authEndpoint = authMatch[0];
-      console.log('🔄 Encaminhando endpoint de autenticação:', authEndpoint);
-      
-      // Determinar qual handler específico chamar
-      if (req.method === 'POST' && authEndpoint.includes('/auth/login')) {
-        // Importar o controller e chamar diretamente
-        const { authController } = require('./controllers/authController.js');
-        authController.login(req, res);
-      } else if (req.method === 'POST' && authEndpoint.includes('/auth/logout')) {
-        const { authController } = require('./controllers/authController.js');
-        authController.logout(req, res);
-      } else if (req.method === 'POST' && authEndpoint.includes('/auth/register')) {
-        const { authController } = require('./controllers/authController.js');
-        authController.register(req, res);
-      } else if (req.method === 'GET' && authEndpoint.includes('/auth/me')) {
-        const { authController } = require('./controllers/authController.js');
-        authController.getMe(req, res);
-      } else {
-        next(); // Continuar para outras rotas se não for um endpoint conhecido
-      }
-      return;
-    }
-  }
-  
-  next(); // Continuar normalmente se não for o padrão problemático
-});
-
-// Middleware de conexão com banco de dados - aplicar apenas após rotas de autenticação
-// para evitar problemas com transações em operações de login/logout
-
-// Rotas de autenticação (sem middleware de transação)
-app.use('/api/auth', authRoutes);
-
-// Aplicar middleware de banco de dados para outras rotas
-app.use(dbConnectionMiddleware);
-app.use(transactionMiddleware);
 
 // Outras rotas (com middleware de transação)
 app.use('/api/students', studentRoutes);
