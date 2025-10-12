@@ -200,6 +200,57 @@ app.get('/api', (req, res) => {
   res.send('API do Portal do Curso Técnico está funcionando!');
 });
 
+// Rotas de fallback para lidar com URLs mal formadas do proxy do Railway
+app.all('/cursotecnicoinfobva-backend-production.up.railway.app/*', (req, res) => {
+  console.log('🔄 Rota de fallback acionada para:', req.originalUrl);
+  
+  // Extrair a rota real da URL mal formada
+  const pathMatch = req.originalUrl.match(/\/cursotecnicoinfobva-backend-production\.up\.railway\.app(\/.*)$/);
+  if (pathMatch) {
+    const realPath = pathMatch[1];
+    console.log('🔄 Redirecionando para rota real:', realPath);
+    
+    // Determinar o método correto e encaminhar para a rota apropriada
+    if (realPath.startsWith('/api/auth/')) {
+      // É uma rota de autenticação
+      if (req.method === 'POST' && realPath.includes('/auth/login')) {
+        authRoutes(req, res);
+      } else if (req.method === 'POST' && realPath.includes('/auth/logout')) {
+        authRoutes(req, res);
+      } else if (req.method === 'POST' && realPath.includes('/auth/register')) {
+        authRoutes(req, res);
+      } else if (req.method === 'GET' && realPath.includes('/auth/me')) {
+        authRoutes(req, res);
+      } else {
+        res.status(404).json({ error: 'Rota não encontrada' });
+      }
+    } else {
+      // Para outras rotas, tentar determinar o tipo
+      if (realPath.startsWith('/api/students/')) {
+        studentRoutes(req, res);
+      } else if (realPath.startsWith('/api/teachers/')) {
+        teacherRoutes(req, res);
+      } else if (realPath.startsWith('/api/subjects/')) {
+        subjectRoutes(req, res);
+      } else if (realPath.startsWith('/api/users/')) {
+        userRoutes(req, res);
+      } else if (realPath.startsWith('/api/activities/')) {
+        activityRoutes(req, res);
+      } else if (realPath.startsWith('/api/content/')) {
+        contentRoutes(req, res);
+      } else if (realPath.startsWith('/api/resources/')) {
+        resourceRoutes(req, res);
+      } else if (realPath.startsWith('/api/contacts/')) {
+        contactRoutes(req, res);
+      } else {
+        res.status(404).json({ error: 'Rota não encontrada' });
+      }
+    }
+  } else {
+    res.status(404).json({ error: 'Rota não encontrada' });
+  }
+});
+
 // Middleware de tratamento de erros
 app.use(errorHandler);
 
