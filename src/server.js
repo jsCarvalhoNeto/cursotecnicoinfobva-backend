@@ -172,34 +172,6 @@ app.use(cookieParser());
 // Servir arquivos estáticos da pasta public
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-// Middleware de conexão com banco de dados - aplicar apenas após rotas de autenticação
-// para evitar problemas com transações em operações de login/logout
-
-// Rotas de autenticação (sem middleware de transação)
-app.use('/api/auth', authRoutes);
-
-// Aplicar middleware de banco de dados para outras rotas
-app.use(dbConnectionMiddleware);
-app.use(transactionMiddleware);
-
-// Outras rotas (com middleware de transação)
-app.use('/api/students', studentRoutes);
-app.use('/api/teachers', teacherRoutes);
-app.use('/api/subjects', subjectRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/activities', activityRoutes);
-app.use('/api/content', contentRoutes);
-app.use('/api/resources', resourceRoutes);
-app.use('/api/contacts', contactRoutes);
-
-// Rota de contato também sem transação (como antes)
-app.use('/api', contactRoutes); // Mantém esta para compatibilidade
-
-// Rota de teste
-app.get('/api', (req, res) => {
-  res.send('API do Portal do Curso Técnico está funcionando!');
-});
-
 // Rotas de fallback para lidar com URLs mal formadas do proxy do Railway
 app.all('/cursotecnicoinfobva-backend-production.up.railway.app/*', (req, res) => {
   console.log('🔄 Rota de fallback acionada para:', req.originalUrl);
@@ -267,22 +239,18 @@ app.all('*', (req, res, next) => {
       
       // Determinar qual handler específico chamar
       if (req.method === 'POST' && authEndpoint.includes('/auth/login')) {
-        authRoutes.stack.forEach(layer => {
-          if (layer.route && layer.route.path === '/login' && layer.route.methods.post) {
-            layer.handle(req, res);
-            return;
-          }
-        });
-        // Se não encontrar no stack, chamar diretamente o controller
-        if (!res.headersSent) {
-          require('./controllers/authController.js').authController.login(req, res);
-        }
+        // Importar o controller e chamar diretamente
+        const { authController } = require('./controllers/authController.js');
+        authController.login(req, res);
       } else if (req.method === 'POST' && authEndpoint.includes('/auth/logout')) {
-        require('./controllers/authController.js').authController.logout(req, res);
+        const { authController } = require('./controllers/authController.js');
+        authController.logout(req, res);
       } else if (req.method === 'POST' && authEndpoint.includes('/auth/register')) {
-        require('./controllers/authController.js').authController.register(req, res);
+        const { authController } = require('./controllers/authController.js');
+        authController.register(req, res);
       } else if (req.method === 'GET' && authEndpoint.includes('/auth/me')) {
-        require('./controllers/authController.js').authController.getMe(req, res);
+        const { authController } = require('./controllers/authController.js');
+        authController.getMe(req, res);
       } else {
         next(); // Continuar para outras rotas se não for um endpoint conhecido
       }
@@ -291,6 +259,34 @@ app.all('*', (req, res, next) => {
   }
   
   next(); // Continuar normalmente se não for o padrão problemático
+});
+
+// Middleware de conexão com banco de dados - aplicar apenas após rotas de autenticação
+// para evitar problemas com transações em operações de login/logout
+
+// Rotas de autenticação (sem middleware de transação)
+app.use('/api/auth', authRoutes);
+
+// Aplicar middleware de banco de dados para outras rotas
+app.use(dbConnectionMiddleware);
+app.use(transactionMiddleware);
+
+// Outras rotas (com middleware de transação)
+app.use('/api/students', studentRoutes);
+app.use('/api/teachers', teacherRoutes);
+app.use('/api/subjects', subjectRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/resources', resourceRoutes);
+app.use('/api/contacts', contactRoutes);
+
+// Rota de contato também sem transação (como antes)
+app.use('/api', contactRoutes); // Mantém esta para compatibilidade
+
+// Rota de teste
+app.get('/api', (req, res) => {
+  res.send('API do Portal do Curso Técnico está funcionando!');
 });
 
 // Middleware de tratamento de erros
