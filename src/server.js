@@ -263,14 +263,29 @@ app.all('*', (req, res, next) => {
     const authMatch = originalUrl.match(/\/auth\/(login|logout|register|me)/);
     if (authMatch) {
       const authEndpoint = authMatch[0];
-      console.log('🔄 Redirecionando endpoint de autenticação:', authEndpoint);
+      console.log('🔄 Encaminhando endpoint de autenticação:', authEndpoint);
       
-      // Atualizar a URL da requisição para o endpoint correto
-      req.url = authEndpoint; // Usar o endpoint original sem /api/ prefixo
-      req.originalUrl = authEndpoint;
-      
-      // Encaminhar para as rotas de autenticação (que já estão montadas em /api/auth)
-      authRoutes(req, res);
+      // Determinar qual handler específico chamar
+      if (req.method === 'POST' && authEndpoint.includes('/auth/login')) {
+        authRoutes.stack.forEach(layer => {
+          if (layer.route && layer.route.path === '/login' && layer.route.methods.post) {
+            layer.handle(req, res);
+            return;
+          }
+        });
+        // Se não encontrar no stack, chamar diretamente o controller
+        if (!res.headersSent) {
+          require('./controllers/authController.js').authController.login(req, res);
+        }
+      } else if (req.method === 'POST' && authEndpoint.includes('/auth/logout')) {
+        require('./controllers/authController.js').authController.logout(req, res);
+      } else if (req.method === 'POST' && authEndpoint.includes('/auth/register')) {
+        require('./controllers/authController.js').authController.register(req, res);
+      } else if (req.method === 'GET' && authEndpoint.includes('/auth/me')) {
+        require('./controllers/authController.js').authController.getMe(req, res);
+      } else {
+        next(); // Continuar para outras rotas se não for um endpoint conhecido
+      }
       return;
     }
   }
