@@ -33,11 +33,14 @@ const allowedOrigins = [
   'http://localhost:4002', // dev local
   'http://localhost:5173', // Vite dev server
   'http://localhost:8080', // possível frontend
-  process.env.CORS_ORIGIN // Variável de ambiente adicional
+  process.env.CORS_ORIGIN, // Variável de ambiente adicional
+  'https://cursotecnicobva.up.railway.app', // Domínio do frontend no Railway
+  'https://cursotecnicobva-backend-production.up.railway.app' // Domínio do backend no Railway
 ].filter(Boolean); // Remove undefined values
 
 console.log('🌐 CORS - Origens permitidas:', allowedOrigins);
 
+// Middleware CORS mais permissivo para produção
 app.use(cors({
   origin: (origin, callback) => {
     console.log('🔍 CORS - Verificando origem:', origin);
@@ -60,9 +63,15 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Allow Railway domains (production)
+    // Allow Railway domains (production) - mais flexível
     if (origin.includes('railway.app') || origin.includes('up.railway.app')) {
       console.log('✅ CORS - Permitindo domínio Railway:', origin);
+      return callback(null, true);
+    }
+    
+    // Permitir qualquer subdomínio railway.app em produção
+    if (process.env.NODE_ENV === 'production' && (origin.includes('.railway.app') || origin.includes('railway.app'))) {
+      console.log('✅ CORS - Permitindo subdomínio Railway em produção:', origin);
       return callback(null, true);
     }
     
@@ -70,7 +79,10 @@ app.use(cors({
     console.log('📋 CORS - Origens válidas:', allowedOrigins);
     callback(new Error('Not allowed by CORS'));
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie', 'Content-Length', 'Content-Type', 'X-Requested-With']
 }));
 
 // Middleware para parsing JSON e cookies
