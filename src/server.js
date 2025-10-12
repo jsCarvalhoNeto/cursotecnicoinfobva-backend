@@ -96,19 +96,69 @@ app.use((req, res, next) => {
   const forwardedHost = req.get('X-Forwarded-Host');
   const realHost = req.get('Host');
   const originalUrl = req.originalUrl;
+  const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
   
   console.log('🔄 Proxy - Host original:', realHost);
   console.log('🔄 Proxy - X-Forwarded-Host:', forwardedHost);
   console.log('🔄 Proxy - URL original:', originalUrl);
+  console.log('🔄 Proxy - URL completa:', fullUrl);
   
-  // Se houver problema de proxy, tentar corrigir
-  if (forwardedHost && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
-    // Remover o domínio do backend da URL original se estiver incorretamente incluído
-    const correctedUrl = originalUrl.replace(/cursotecnicoinfobva-backend-production\.up\.railway\.app/, '');
-    if (correctedUrl !== originalUrl) {
-      console.log('🔄 Proxy - URL corrigida:', correctedUrl);
-      req.originalUrl = correctedUrl;
-      req.url = correctedUrl;
+  // Detectar e corrigir URLs mal formadas que combinam domínios
+  if (originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
+    console.log('⚠️ Detectada URL mal formada com domínio combinado:', originalUrl);
+    
+    // Se a URL original contém o domínio do backend, é uma requisição mal formada
+    // Tentar extrair a parte correta da rota
+    const routeMatch = originalUrl.match(/\/(api\/auth\/.*)$/);
+    if (routeMatch) {
+      const correctedRoute = '/' + routeMatch[1];
+      console.log('🔄 Corrigindo rota para:', correctedRoute);
+      req.originalUrl = correctedRoute;
+      req.url = correctedRoute;
+    } else {
+      // Tentar outras formas de rota
+      const authMatch = originalUrl.match(/(\/auth\/.*)$/);
+      if (authMatch) {
+        const correctedRoute = authMatch[1];
+        console.log('🔄 Corrigindo rota de autenticação para:', correctedRoute);
+        req.originalUrl = correctedRoute;
+        req.url = correctedRoute;
+      }
+    }
+  }
+  
+  // Verificar se a requisição vem de um proxy do Railway com URL mal formada
+  if (forwardedHost && forwardedHost.includes('infobva.up.railway.app')) {
+    console.log('🔄 Proxy detectado do frontend Railway:', forwardedHost);
+  }
+  
+  next();
+});
+
+// Middleware adicional para redirecionar requisições mal formadas
+app.use((req, res, next) => {
+  const originalUrl = req.originalUrl;
+  
+  // Se a URL original contém o padrão problemático, redirecionar
+  if (originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
+    // Extrair a rota correta
+    const routeMatch = originalUrl.match(/(\/api\/auth\/.*)$/);
+    if (routeMatch) {
+      const correctRoute = routeMatch[1];
+      console.log('🔄 Redirecionando requisição mal formada para:', correctRoute);
+      
+      // Atualizar a rota e continuar
+      req.originalUrl = correctRoute;
+      req.url = correctRoute;
+    } else {
+      // Tentar encontrar outras rotas
+      const authRouteMatch = originalUrl.match(/(\/auth\/.*)$/);
+      if (authRouteMatch) {
+        const correctRoute = authRouteMatch[1];
+        console.log('🔄 Redirecionando rota de autenticação para:', correctRoute);
+        req.originalUrl = correctRoute;
+        req.url = correctRoute;
+      }
     }
   }
   
