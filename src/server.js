@@ -119,9 +119,6 @@ app.use((req, res, next) => {
       // Atualizar a URL da requisição
       req.url = correctedUrl;
       req.originalUrl = correctedUrl;
-      
-      // Permitir que a requisição continue normalmente pelo pipeline
-      // O middleware de banco de dados será aplicado automaticamente
     }
   }
   
