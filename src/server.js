@@ -210,7 +210,7 @@ app.all('/cursotecnicoinfobva-backend-production.up.railway.app/*', (req, res) =
     const realPath = pathMatch[1];
     console.log('🔄 Redirecionando para rota real:', realPath);
     
-    // Determinar o método correto e encaminhar para a rota apropriada
+    // Determinar o método correto encaminhar para a rota apropriada
     if (realPath.startsWith('/api/auth/')) {
       // É uma rota de autenticação
       if (req.method === 'POST' && realPath.includes('/auth/login')) {
@@ -249,6 +249,43 @@ app.all('/cursotecnicoinfobva-backend-production.up.railway.app/*', (req, res) =
   } else {
     res.status(404).json({ error: 'Rota não encontrada' });
   }
+});
+
+// Rota de fallback específica para o padrão exato do erro do usuário
+app.all('*', (req, res, next) => {
+  const originalUrl = req.originalUrl;
+  
+  // Verificar se a URL original contém o padrão exato do erro
+  if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
+    console.log('🔄 Detectado padrão de proxy do Railway:', originalUrl);
+    
+    // Tentar extrair a rota real
+    const authMatch = originalUrl.match(/\/auth\/(login|logout|register|me)/);
+    if (authMatch) {
+      const authEndpoint = authMatch[0];
+      console.log('🔄 Redirecionando endpoint de autenticação:', authEndpoint);
+      
+      // Encaminhar para as rotas de autenticação
+      if (req.method === 'POST' && authEndpoint.includes('login')) {
+        req.url = '/api/auth/login';
+        authRoutes(req, res);
+      } else if (req.method === 'POST' && authEndpoint.includes('logout')) {
+        req.url = '/api/auth/logout';
+        authRoutes(req, res);
+      } else if (req.method === 'POST' && authEndpoint.includes('register')) {
+        req.url = '/api/auth/register';
+        authRoutes(req, res);
+      } else if (req.method === 'GET' && authEndpoint.includes('me')) {
+        req.url = '/api/auth/me';
+        authRoutes(req, res);
+      } else {
+        next(); // Continuar para outras rotas
+      }
+      return;
+    }
+  }
+  
+  next(); // Continuar normalmente se não for o padrão problemático
 });
 
 // Middleware de tratamento de erros
