@@ -259,28 +259,18 @@ app.all('*', (req, res, next) => {
   if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
     console.log('🔄 Detectado padrão de proxy do Railway:', originalUrl);
     
-    // Tentar extrair a rota real
+    // Tentar extrair a rota real de autenticação
     const authMatch = originalUrl.match(/\/auth\/(login|logout|register|me)/);
     if (authMatch) {
       const authEndpoint = authMatch[0];
       console.log('🔄 Redirecionando endpoint de autenticação:', authEndpoint);
       
+      // Atualizar a URL da requisição para o endpoint correto
+      req.url = '/api' + authEndpoint;
+      req.originalUrl = '/api' + authEndpoint;
+      
       // Encaminhar para as rotas de autenticação
-      if (req.method === 'POST' && authEndpoint.includes('login')) {
-        req.url = '/api/auth/login';
-        authRoutes(req, res);
-      } else if (req.method === 'POST' && authEndpoint.includes('logout')) {
-        req.url = '/api/auth/logout';
-        authRoutes(req, res);
-      } else if (req.method === 'POST' && authEndpoint.includes('register')) {
-        req.url = '/api/auth/register';
-        authRoutes(req, res);
-      } else if (req.method === 'GET' && authEndpoint.includes('me')) {
-        req.url = '/api/auth/me';
-        authRoutes(req, res);
-      } else {
-        next(); // Continuar para outras rotas
-      }
+      authRoutes(req, res);
       return;
     }
   }
