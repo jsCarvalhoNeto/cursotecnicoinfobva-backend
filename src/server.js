@@ -103,7 +103,7 @@ app.use((req, res, next) => {
   console.log('🔄 Proxy Global - URL completa:', fullUrl);
   
   // Verificar se a URL original contém o padrão problemático do proxy do Railway
- if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
+  if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
     console.log('🔄 Detectado padrão de proxy do Railway com domínios combinados:', originalUrl);
     
     // Extrair a rota real de autenticação
@@ -112,19 +112,17 @@ app.use((req, res, next) => {
       const authEndpoint = authMatch[0];
       console.log('🔄 Encaminhando endpoint de autenticação:', authEndpoint);
       
-      // Importar o controller e chamar diretamente (síncrono)
-      const { authController } = require('./controllers/authController.js');
-      if (req.method === 'POST' && authEndpoint.includes('/auth/login')) {
-        authController.login(req, res);
-      } else if (req.method === 'POST' && authEndpoint.includes('/auth/logout')) {
-        authController.logout(req, res);
-      } else if (req.method === 'POST' && authEndpoint.includes('/auth/register')) {
-        authController.register(req, res);
-      } else if (req.method === 'GET' && authEndpoint.includes('/auth/me')) {
-        authController.getMe(req, res);
-      } else {
-        next(); // Continuar se não for um endpoint conhecido
-      }
+      // Corrigir a URL para que corresponda ao padrão esperado pelas rotas montadas
+      // A rota original era /api/auth/login, então vamos extrair corretamente
+      const correctedUrl = originalUrl.replace(/.*\/auth\//, '/api/auth/');
+      console.log('🔄 URL corrigida para:', correctedUrl);
+      
+      // Atualizar a URL da requisição
+      req.url = correctedUrl;
+      req.originalUrl = correctedUrl;
+      
+      // Agora chamar as rotas de autenticação diretamente
+      authRoutes(req, res);
       return; // Não continuar com o pipeline normal
     }
   }
