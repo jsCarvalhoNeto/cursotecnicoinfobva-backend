@@ -116,9 +116,20 @@ app.use((req, res, next) => {
       const correctedUrl = '/api' + authEndpoint;
       console.log('🔄 URL corrigida para:', correctedUrl);
       
-      // Atualizar a URL da requisição
+      // Atualizar a URL da requisição e continuar normalmente
+      // Isso permite que o middleware de banco de dados seja aplicado
       req.url = correctedUrl;
       req.originalUrl = correctedUrl;
+      next();
+      return;
+    } else {
+      // Se não for uma rota de autenticação, tentar redirecionar para a rota correta
+      const correctedUrl = originalUrl.replace(/infobva\.up\.railway\.app\/cursotecnicoinfobva-backend-production\.up\.railway\.app/, 'cursotecnicoinfobva-backend-production.up.railway.app');
+      if (correctedUrl !== originalUrl) {
+        console.log('🔄 URL corrigida para redirecionamento:', correctedUrl);
+        req.url = correctedUrl;
+        req.originalUrl = correctedUrl;
+      }
     }
   }
   
