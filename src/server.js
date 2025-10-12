@@ -90,20 +90,50 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// Middleware para lidar com requisições proxy do Railway
+// Middleware GLOBAL para lidar com requisições proxy do Railway - deve ser o PRIMEIRO
 app.use((req, res, next) => {
-  // Verificar se é uma requisição proxy
+  const originalUrl = req.originalUrl;
   const forwardedHost = req.get('X-Forwarded-Host');
   const realHost = req.get('Host');
-  const originalUrl = req.originalUrl;
   const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
   
-  console.log('🔄 Proxy - Host original:', realHost);
-  console.log('🔄 Proxy - X-Forwarded-Host:', forwardedHost);
-  console.log('🔄 Proxy - URL original:', originalUrl);
-  console.log('🔄 Proxy - URL completa:', fullUrl);
+  console.log('🔄 Proxy Global - Host original:', realHost);
+  console.log('🔄 Proxy Global - X-Forwarded-Host:', forwardedHost);
+  console.log('🔄 Proxy Global - URL original:', originalUrl);
+  console.log('🔄 Proxy Global - URL completa:', fullUrl);
   
-  // Detectar e corrigir URLs mal formadas que combinam domínios
+  // Verificar se a URL original contém o padrão problemático do proxy do Railway
+  if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
+    console.log('🔄 Detectado padrão de proxy do Railway com domínios combinados:', originalUrl);
+    
+    // Extrair a rota real de autenticação
+    const authMatch = originalUrl.match(/\/auth\/(login|logout|register|me)/);
+    if (authMatch) {
+      const authEndpoint = authMatch[0];
+      console.log('🔄 Encaminhando endpoint de autenticação:', authEndpoint);
+      
+      // Importar o controller e chamar diretamente
+      import('./controllers/authController.js').then(({ authController }) => {
+        if (req.method === 'POST' && authEndpoint.includes('/auth/login')) {
+          authController.login(req, res);
+        } else if (req.method === 'POST' && authEndpoint.includes('/auth/logout')) {
+          authController.logout(req, res);
+        } else if (req.method === 'POST' && authEndpoint.includes('/auth/register')) {
+          authController.register(req, res);
+        } else if (req.method === 'GET' && authEndpoint.includes('/auth/me')) {
+          authController.getMe(req, res);
+        } else {
+          next(); // Continuar se não for um endpoint conhecido
+        }
+      }).catch(err => {
+        console.error('Erro ao importar authController:', err);
+        next();
+      });
+      return; // Não continuar com o pipeline normal
+    }
+  }
+  
+  // Detectar e corrigir URLs mal formadas que combinam domínios (correção secundária)
   if (originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
     console.log('⚠️ Detectada URL mal formada com domínio combinado:', originalUrl);
     
