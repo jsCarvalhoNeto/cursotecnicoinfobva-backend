@@ -9,15 +9,15 @@ const router = express.Router();
 router.use(transactionMiddleware);
 
 // Rota para cadastro de novo usuário
-router.post('/auth/register', authController.register);
+router.post('/register', authController.register);
 
 // Rota para login de usuário
-router.post('/auth/login', authController.login);
+router.post('/login', authController.login);
 
 // Rota para obter informações do usuário atual (baseado na sessão)
-router.get('/auth/me', requireAuth, authController.getMe);
+router.get('/me', requireAuth, authController.getMe);
 
 // Rota para logout
-router.post('/auth/logout', authController.logout);
+router.post('/logout', authController.logout);
 
 export default router;

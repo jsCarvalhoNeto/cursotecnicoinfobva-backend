@@ -27,7 +27,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 4002;
 
-// Configurações do CORS
+// Configurações do CORS - mais flexíveis para produção no Railway
 const allowedOrigins = [
   'http://localhost:3000', // React dev server
   'http://localhost:4002', // dev local
@@ -36,7 +36,10 @@ const allowedOrigins = [
   process.env.CORS_ORIGIN, // Variável de ambiente adicional
   'https://cursotecnicobva.up.railway.app', // Domínio do frontend no Railway (antigo)
   'https://infobva.up.railway.app', // Domínio do frontend no Railway (novo)
-  'https://cursotecnicobva-backend-production.up.railway.app' // Domínio do backend no Railway
+  'https://cursotecnicobva-backend-production.up.railway.app', // Domínio do backend no Railway
+  'https://cursotecnicobva-frontend-production.up.railway.app', // Domínio do frontend no Railway (corrigido)
+  'https://*.railway.app', // Permitir qualquer subdomínio do Railway
+  'https://*.up.railway.app' // Permitir qualquer subdomínio up.railway.app
 ].filter(Boolean); // Remove undefined values
 
 console.log('🌐 CORS - Origens permitidas:', allowedOrigins);
@@ -46,9 +49,9 @@ app.use(cors({
   origin: (origin, callback) => {
     console.log('🔍 CORS - Verificando origem:', origin);
     
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin) {
-      console.log('✅ CORS - Permitindo requisição sem origem');
+    // Allow requests with no origin (mobile apps, curl, etc.) or when NODE_ENV is not set properly
+    if (!origin || origin === 'null' || origin === 'undefined') {
+      console.log('✅ CORS - Permitindo requisição sem origem (possivelmente requisição direta ou proxy)');
       return callback(null, true);
     }
     
@@ -70,12 +73,6 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Permitir qualquer subdomínio railway.app em produção
-    if (process.env.NODE_ENV === 'production' && (origin.includes('.railway.app') || origin.includes('railway.app'))) {
-      console.log('✅ CORS - Permitindo subdomínio Railway em produção:', origin);
-      return callback(null, true);
-    }
-    
     console.log('❌ CORS - Origem não permitida:', origin);
     console.log('📋 CORS - Origens válidas:', allowedOrigins);
     callback(new Error('Not allowed by CORS'));
@@ -93,12 +90,17 @@ app.use(cookieParser());
 // Servir arquivos estáticos da pasta public
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-// Middleware de conexão com banco de dados
+// Middleware de conexão com banco de dados - aplicar apenas após rotas de autenticação
+// para evitar problemas com transações em operações de login/logout
+
+// Rotas de autenticação (sem middleware de transação)
+app.use('/api/auth', authRoutes);
+
+// Aplicar middleware de banco de dados para outras rotas
 app.use(dbConnectionMiddleware);
 app.use(transactionMiddleware);
 
-// Rotas
-app.use('/api', authRoutes);
+// Outras rotas (com middleware de transação)
 app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/subjects', subjectRoutes);
@@ -106,7 +108,10 @@ app.use('/api/users', userRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/resources', resourceRoutes);
-app.use('/api', contactRoutes);
+app.use('/api/contacts', contactRoutes);
+
+// Rota de contato também sem transação (como antes)
+app.use('/api', contactRoutes); // Mantém esta para compatibilidade
 
 // Rota de teste
 app.get('/api', (req, res) => {

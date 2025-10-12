@@ -16,8 +16,10 @@ const dbConnectionOptions = process.env.DATABASE_URL
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
       connectTimeout: 60000,
       acquireTimeout: 60000,
-      timeout: 6000,
-      multipleStatements: true
+      multipleStatements: true,
+      // Adiciona configurações para melhor funcionamento em produção
+      timezone: 'Z',
+      charset: 'utf8mb4'
     };
 
 // Função para testar conexão com MySQL e verificar se tabelas existem
