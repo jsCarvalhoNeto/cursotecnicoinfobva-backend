@@ -128,3 +128,10 @@ Se o frontend mostrar este erro, pode ser necessário instalar o plugin `@vitejs
 1. Instale o plugin: `npm install @vitejs/plugin-react --save-dev`
 2. Atualize o `vite.config.ts` para importar e usar `@vitejs/plugin-react` em vez de `@vitejs/plugin-react-swc`
 3. Rebuild o projeto para produção
+
+### Rotas retornando 404 no Railway
+Se rotas como `/subjects` retornarem 404, pode ser devido ao middleware de proxy do Railway interferindo nas rotas normais. O middleware foi otimizado para corrigir apenas os casos específicos de problemas comuns e não interferir nas rotas normais da API.
+
+**Solução:**
+- O middleware de proxy agora é mais seletivo e apenas corrige os padrões específicos de URLs problemáticas
+- Rotas normais como `/api/subjects` continuam funcionando corretamente

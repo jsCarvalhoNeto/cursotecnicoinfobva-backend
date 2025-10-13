@@ -104,6 +104,7 @@ app.use((req, res, next) => {
   console.log('🔄 Proxy Global - URL completa:', fullUrl);
   
   // Corrigir URLs com barras duplicadas (problema comum no proxy do Railway)
+  // Mas apenas para casos específicos que causam problemas
   if (originalUrl.includes('//')) {
     const correctedUrl = originalUrl.replace(/\/{2,}/g, '/'); // Substitui múltiplas barras por uma
     console.log('🔄 Corrigindo URL com barras duplicadas:', originalUrl, '->', correctedUrl);
@@ -111,7 +112,8 @@ app.use((req, res, next) => {
     req.originalUrl = correctedUrl;
   }
   
-  // Verificar se a URL original contém o padrão problemático do proxy do Railway
+  // Apenas aplicar correções específicas para os padrões conhecidos problemáticos
+  // e apenas para rotas de autenticação que estão com problemas específicos
   if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
     console.log('🔄 Detectado padrão de proxy do Railway com domínios combinados:', originalUrl);
     
@@ -131,82 +133,22 @@ app.use((req, res, next) => {
       req.originalUrl = correctedUrl;
       next();
       return;
-    } else {
-      // Se não for uma rota de autenticação, tentar redirecionar para a rota correta
-      const correctedUrl = originalUrl.replace(/infobva\.up\.railway\.app\/cursotecnicoinfobva-backend-production\.up\.railway\.app/, 'cursotecnicoinfobva-backend-production.up.railway.app');
-      if (correctedUrl !== originalUrl) {
-        console.log('🔄 URL corrigida para redirecionamento:', correctedUrl);
-        req.url = correctedUrl;
-        req.originalUrl = correctedUrl;
-      }
     }
-  }
-  
-  // Detectar e corrigir URLs mal formadas que combinam domínios (correção secundária)
-  if (originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
-    console.log('⚠️ Detectada URL mal formada com domínio combinado:', originalUrl);
-    
-    // Se a URL original contém o domínio do backend, é uma requisição mal formada
-    // Tentar extrair a parte correta da rota
-    const routeMatch = originalUrl.match(/\/(api\/auth\/.*)$/);
-    if (routeMatch) {
-      const correctedRoute = '/' + routeMatch[1];
-      console.log('🔄 Corrigindo rota para:', correctedRoute);
-      req.originalUrl = correctedRoute;
-      req.url = correctedRoute;
-    } else {
-      // Tentar outras formas de rota
-      const authMatch = originalUrl.match(/(\/auth\/.*)$/);
-      if (authMatch) {
-        const correctedRoute = authMatch[1];
-        console.log('🔄 Corrigindo rota de autenticação para:', correctedRoute);
-        req.originalUrl = correctedRoute;
-        req.url = correctedRoute;
-      }
-    }
-  }
-  
-  // Verificar se a requisição vem de um proxy do Railway com URL mal formada
-  if (forwardedHost && forwardedHost.includes('infobva.up.railway.app')) {
-    console.log('🔄 Proxy detectado do frontend Railway:', forwardedHost);
   }
   
   next();
 });
 
-// Middleware adicional para redirecionar requisições mal formadas
+// Middleware adicional para redirecionar requisições mal formadas - apenas para casos específicos
 app.use((req, res, next) => {
   const originalUrl = req.originalUrl;
   
-  // Corrigir URLs com barras duplicadas (segunda verificação)
-  if (originalUrl.includes('//')) {
+  // Apenas corrigir URLs com barras duplicadas se ainda não estiver corrigido
+  if (originalUrl.includes('//') && originalUrl !== req.originalUrl) {
     const correctedUrl = originalUrl.replace(/\/{2,}/g, '/'); // Substitui múltiplas barras por uma
     console.log('🔄 Corrigindo URL com barras duplicadas (2ª verificação):', originalUrl, '->', correctedUrl);
     req.originalUrl = correctedUrl;
     req.url = correctedUrl;
-  }
-  
-  // Se a URL original contém o padrão problemático, redirecionar
-  if (originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
-    // Extrair a rota correta
-    const routeMatch = originalUrl.match(/(\/api\/auth\/.*)$/);
-    if (routeMatch) {
-      const correctRoute = routeMatch[1];
-      console.log('🔄 Redirecionando requisição mal formada para:', correctRoute);
-      
-      // Atualizar a rota e continuar
-      req.originalUrl = correctRoute;
-      req.url = correctRoute;
-    } else {
-      // Tentar encontrar outras rotas
-      const authRouteMatch = originalUrl.match(/(\/auth\/.*)$/);
-      if (authRouteMatch) {
-        const correctRoute = authRouteMatch[1];
-        console.log('🔄 Redirecionando rota de autenticação para:', correctRoute);
-        req.originalUrl = correctRoute;
-        req.url = correctRoute;
-      }
-    }
   }
   
   next();
