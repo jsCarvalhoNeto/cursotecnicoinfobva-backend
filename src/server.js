@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -211,7 +212,20 @@ app.use(transactionMiddleware);
 
 // Rotas de autenticação (sem middleware de transação - deve vir DEPOIS)
 // Para contornar o problema, vamos remover o middleware de transação para rotas de autenticação
+// Manter compatibilidade com ambas as rotas: /api/auth e /auth
 app.use('/api/auth', (req, res, next) => {
+  // Remover o middleware de transação temporariamente para rotas de autenticação
+  const originalEnd = res.end;
+  res.end = function(chunk, encoding, callback) {
+    // Não aplicar transação para rotas de autenticação
+    res.end = originalEnd;
+    return res.end.call(this, chunk, encoding, callback);
+  };
+  authRoutes(req, res, next);
+});
+
+// Manter rotas de autenticação também em /auth para compatibilidade com frontend
+app.use('/auth', (req, res, next) => {
   // Remover o middleware de transação temporariamente para rotas de autenticação
   const originalEnd = res.end;
   res.end = function(chunk, encoding, callback) {
