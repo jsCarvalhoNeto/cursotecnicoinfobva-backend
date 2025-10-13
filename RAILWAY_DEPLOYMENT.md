@@ -118,3 +118,13 @@ Antes de fazer o deploy:
 - [ ] Script de inicialização definido como `npm start`
 - [ ] Banco de dados MySQL ativo e configurado
 - [ ] Verificar logs após deploy para confirmar conexão com banco de dados
+
+## Problemas Comuns e Soluções
+
+### Erro "jsxDEV is not a function" no frontend
+Se o frontend mostrar este erro, pode ser necessário instalar o plugin `@vitejs/plugin-react` e atualizar o `vite.config.ts` para usá-lo em vez de `@vitejs/plugin-react-swc`.
+
+**Solução:**
+1. Instale o plugin: `npm install @vitejs/plugin-react --save-dev`
+2. Atualize o `vite.config.ts` para importar e usar `@vitejs/plugin-react` em vez de `@vitejs/plugin-react-swc`
+3. Rebuild o projeto para produção
