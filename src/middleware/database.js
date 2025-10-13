@@ -12,14 +12,19 @@ const dbConnectionOptions = process.env.DATABASE_URL
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || '', // Senha vazia para phpMyAdmin
       database: process.env.DB_NAME || 'josedo64_sisctibalbina',
-      port: process.env.DB_PORT || 3306,
+      port: parseInt(process.env.DB_PORT) || 3306,
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
       connectTimeout: 60000,
-      acquireTimeout: 60000,
+      // Remover acquireTimeout que está causando warnings no MySQL2
+      // acquireTimeout: 60000,
       multipleStatements: true,
-      // Adiciona configurações para melhor funcionamento em produção
+      // Configurações para melhor funcionamento em produção no Railway
       timezone: 'Z',
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      // Configurações adicionais para Railway
+      insecureAuth: true,
+      supportBigNumbers: true,
+      bigNumberStrings: true
     };
 
 // Função para testar conexão com MySQL e verificar se tabelas existem
