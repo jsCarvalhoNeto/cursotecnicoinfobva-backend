@@ -71,6 +71,11 @@ Se as rotas de autenticação retornarem 404, verifique:
 2. Se as variáveis de ambiente estão configuradas
 3. Os logs do backend para identificar problemas de parsing de URL
 
+### Host bloqueado no frontend (Vite)
+Se aparecer "Blocked request. This host is not allowed", verifique o `vite.config.ts`:
+- Adicione os domínios do Railway em `server.allowedHosts`
+- Domínios comuns: `.railway.app`, `.up.railway.app`
+
 ### Logs úteis
 O middleware de banco de dados e proxy mostram logs detalhados como:
 - `🔍 Debug - Variáveis de ambiente do banco de dados`
