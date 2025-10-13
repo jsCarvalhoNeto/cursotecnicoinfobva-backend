@@ -103,6 +103,14 @@ app.use((req, res, next) => {
   console.log('🔄 Proxy Global - URL original:', originalUrl);
   console.log('🔄 Proxy Global - URL completa:', fullUrl);
   
+  // Corrigir URLs com barras duplicadas (problema comum no proxy do Railway)
+  if (originalUrl.includes('//')) {
+    const correctedUrl = originalUrl.replace(/\/{2,}/g, '/'); // Substitui múltiplas barras por uma
+    console.log('🔄 Corrigindo URL com barras duplicadas:', originalUrl, '->', correctedUrl);
+    req.url = correctedUrl;
+    req.originalUrl = correctedUrl;
+  }
+  
   // Verificar se a URL original contém o padrão problemático do proxy do Railway
   if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
     console.log('🔄 Detectado padrão de proxy do Railway com domínios combinados:', originalUrl);
@@ -169,6 +177,14 @@ app.use((req, res, next) => {
 // Middleware adicional para redirecionar requisições mal formadas
 app.use((req, res, next) => {
   const originalUrl = req.originalUrl;
+  
+  // Corrigir URLs com barras duplicadas (segunda verificação)
+  if (originalUrl.includes('//')) {
+    const correctedUrl = originalUrl.replace(/\/{2,}/g, '/'); // Substitui múltiplas barras por uma
+    console.log('🔄 Corrigindo URL com barras duplicadas (2ª verificação):', originalUrl, '->', correctedUrl);
+    req.originalUrl = correctedUrl;
+    req.url = correctedUrl;
+  }
   
   // Se a URL original contém o padrão problemático, redirecionar
   if (originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
