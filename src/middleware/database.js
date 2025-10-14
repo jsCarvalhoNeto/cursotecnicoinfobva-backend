@@ -151,25 +151,37 @@ async function testMySQLConnection() {
 export const dbConnectionMiddleware = async (req, res, next) => {
   try {
     console.log('🔍 Iniciando middleware de conexão com banco de dados...');
-    // Testar conexão com MySQL
-    const mysqlAvailable = await testMySQLConnection();
-
-    if (mysqlAvailable) {
-      console.log('🎯 Conectando ao MySQL real...');
-      // Usar MySQL real
+    console.log('🔍 URL da requisição:', req.url);
+    
+    // Para evitar overhead de teste de conexão em cada requisição, vamos tentar conectar diretamente
+    // e usar mock se falhar
+    try {
+      console.log('🎯 Tentando conectar ao MySQL real...');
       req.db = await mysql.createConnection(dbConnectionOptions);
-      await req.db.beginTransaction();
+      
+      // Não iniciar transação para rotas de autenticação
+      const authRoutes = ['/auth', '/api/auth'];
+      const isAuthRoute = authRoutes.some(route => req.url.startsWith(route));
+      
+      if (!isAuthRoute) {
+        await req.db.beginTransaction();
+        console.log('✅ Conexão com banco de dados MySQL estabelecida e transação iniciada');
+      } else {
+        console.log('✅ Conexão com banco de dados MySQL estabelecida (sem transação para rotas de autenticação)');
+      }
+      
       req.dbType = 'mysql';
-      console.log('✅ Conexão com banco de dados MySQL estabelecida e transação iniciada');
-    } else {
-      console.log('🎯 Banco MySQL não disponível, usando mock...');
-      // Usar banco de dados mockado
+    } catch (connectionError) {
+      console.error('❌ Erro ao conectar ao MySQL real:', connectionError.message);
+      console.log('🎯 Usando banco de dados mockado devido ao erro de conexão');
       req.db = mockDbUtils;
       req.dbType = 'mock';
       console.log('⚠️ Usando banco de dados mockado');
     }
   } catch (error) {
     console.error('❌ Erro ao conectar ao banco de dados:', error);
+    console.error('Código do erro:', error.code);
+    console.error('Mensagem do erro:', error.message);
     res.status(500).json({ error: 'Erro ao conectar ao banco de dados.' });
     return;
   }

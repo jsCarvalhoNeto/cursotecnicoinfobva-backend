@@ -103,15 +103,6 @@ app.use((req, res, next) => {
   console.log('🔄 Proxy Global - URL original:', originalUrl);
   console.log('🔄 Proxy Global - URL completa:', fullUrl);
   
-  // Corrigir URLs com barras duplicadas (problema comum no proxy do Railway)
-  // Mas apenas para casos específicos que causam problemas
-  if (originalUrl.includes('//')) {
-    const correctedUrl = originalUrl.replace(/\/{2,}/g, '/'); // Substitui múltiplas barras por uma
-    console.log('🔄 Corrigindo URL com barras duplicadas:', originalUrl, '->', correctedUrl);
-    req.url = correctedUrl;
-    req.originalUrl = correctedUrl;
-  }
-  
   // Apenas aplicar correções específicas para os padrões conhecidos problemáticos
   // e apenas para rotas de autenticação que estão com problemas específicos
   if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
@@ -139,21 +130,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware adicional para redirecionar requisições mal formadas - apenas para casos específicos
-app.use((req, res, next) => {
-  const originalUrl = req.originalUrl;
-  
-  // Apenas corrigir URLs com barras duplicadas se ainda não estiver corrigido
-  if (originalUrl.includes('//') && originalUrl !== req.originalUrl) {
-    const correctedUrl = originalUrl.replace(/\/{2,}/g, '/'); // Substitui múltiplas barras por uma
-    console.log('🔄 Corrigindo URL com barras duplicadas (2ª verificação):', originalUrl, '->', correctedUrl);
-    req.originalUrl = correctedUrl;
-    req.url = correctedUrl;
-  }
-  
-  next();
-});
-
 // Middleware para parsing JSON e cookies
 app.use(express.json());
 app.use(cookieParser());
@@ -161,38 +137,14 @@ app.use(cookieParser());
 // Servir arquivos estáticos da pasta public
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-// Middleware de conexão com banco de dados - aplicar apenas após rotas de autenticação
-// para evitar problemas com transações em operações de login/logout
-
 // Aplicar middleware de banco de dados para todas as rotas, exceto autenticação
 app.use(dbConnectionMiddleware);
 app.use(transactionMiddleware);
 
-// Rotas de autenticação (sem middleware de transação - deve vir DEPOIS)
-// Para contornar o problema, vamos remover o middleware de transação para rotas de autenticação
-// Manter compatibilidade com ambas as rotas: /api/auth e /auth
-app.use('/api/auth', (req, res, next) => {
-  // Remover o middleware de transação temporariamente para rotas de autenticação
-  const originalEnd = res.end;
-  res.end = function(chunk, encoding, callback) {
-    // Não aplicar transação para rotas de autenticação
-    res.end = originalEnd;
-    return res.end.call(this, chunk, encoding, callback);
-  };
-  authRoutes(req, res, next);
-});
-
-// Manter rotas de autenticação também em /auth para compatibilidade com frontend
-app.use('/auth', (req, res, next) => {
-  // Remover o middleware de transação temporariamente para rotas de autenticação
-  const originalEnd = res.end;
-  res.end = function(chunk, encoding, callback) {
-    // Não aplicar transação para rotas de autenticação
-    res.end = originalEnd;
-    return res.end.call(this, chunk, encoding, callback);
-  };
-  authRoutes(req, res, next);
-});
+// Rotas de autenticação (com middleware de banco de dados, mas sem transação)
+// O middleware de conexão agora detecta rotas de autenticação e não inicia transação
+app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 
 
 // Rotas de fallback para lidar com URLs mal formadas do proxy do Railway

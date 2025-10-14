@@ -221,6 +221,11 @@ export const createActivity = async (req, res) => {
     console.log('Recebendo requisição para criar atividade:', req.body);
     console.log('User ID autenticado:', req.userId);
     console.log('Arquivo recebido:', req.file);
+    console.log('Cookies recebidos:', req.cookies);
+    console.log('Headers recebidos:', req.headers);
+    console.log('Query params recebidos:', req.query);
+    console.log('DB Type:', req.dbType);
+    console.log('DB Connection State:', req.db ? req.db.state : 'no connection');
     
     // Ignorar o campo 'grade' do req.body para evitar conflitos
     const { name, subject_id, type, description, deadline, period, evaluation_type } = req.body;
@@ -300,9 +305,15 @@ export const createActivity = async (req, res) => {
 
     // Insere a atividade - usar a série da disciplina e os novos campos de período e avaliação
     console.log('Inserindo atividade:', { name, subject_id, grade, type, teacher_id, description, deadline: formattedDeadline, file_path, file_name, period, evaluation_type });
+    console.log('Query de inserção:', `
+      INSERT INTO activities (name, subject_id, grade, type, teacher_id, description, deadline, file_path, file_name, period, evaluation_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    console.log('Parâmetros:', [name, subject_id, grade, type, teacher_id, description || null, formattedDeadline, file_path, file_name, period || null, evaluation_type || null]);
+    
     const insertQuery = `
       INSERT INTO activities (name, subject_id, grade, type, teacher_id, description, deadline, file_path, file_name, period, evaluation_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const [result] = await req.db.execute(insertQuery, [name, subject_id, grade, type, teacher_id, description || null, formattedDeadline, file_path, file_name, period || null, evaluation_type || null]);
     console.log('Atividade inserida com ID:', result.insertId);
@@ -323,6 +334,9 @@ export const createActivity = async (req, res) => {
   } catch (error) {
     console.error('Erro ao criar atividade:', error);
     console.error('Stack do erro:', error.stack);
+    console.error('Mensagem do erro:', error.message);
+    console.error('Código do erro:', error.code);
+    console.error('Número do erro:', error.errno);
     handleError(res, error);
   }
 };

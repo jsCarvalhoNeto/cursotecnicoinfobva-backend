@@ -221,15 +221,23 @@ export const getCalendarEvents = async (req, res) => {
   try {
     // Verificar se a tabela calendar_events existe
     const dbName = process.env.DB_NAME || 'railway';
-    const [tableCheck] = await req.db.execute(`
-      SELECT COUNT(*) as count 
-      FROM information_schema.tables 
-      WHERE table_schema = ? AND table_name = 'calendar_events'
-    `, [dbName]);
+    let tableExists = false;
     
-    console.log('Verificação da tabela calendar_events:', tableCheck[0].count);
+    try {
+      const [tableCheck] = await req.db.execute(`
+        SELECT COUNT(*) as count 
+        FROM information_schema.tables 
+        WHERE table_schema = ? AND table_name = 'calendar_events'
+      `, [dbName]);
+      
+      tableExists = tableCheck[0].count > 0;
+      console.log('Verificação da tabela calendar_events:', tableExists);
+    } catch (tableError) {
+      console.log('Erro ao verificar tabela calendar_events, assumindo que não existe:', tableError.message);
+      tableExists = false;
+    }
     
-    if (tableCheck[0].count === 0) {
+    if (!tableExists) {
       // Se a tabela não existe, retornar array vazio
       console.log('Tabela calendar_events não existe, retornando array vazio');
       return res.status(200).json([]);
@@ -253,6 +261,7 @@ export const getCalendarEvents = async (req, res) => {
     res.status(200).json(rows);
   } catch (error) {
     console.error('Erro ao buscar eventos do calendário:', error);
+    console.error('Stack do erro:', error.stack);
     res.status(500).json({ error: 'Erro ao buscar eventos do calendário.' });
   }
 };
