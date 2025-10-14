@@ -103,6 +103,14 @@ app.use((req, res, next) => {
   console.log('🔄 Proxy Global - URL original:', originalUrl);
   console.log('🔄 Proxy Global - URL completa:', fullUrl);
   
+  // Corrigir URLs com duplo slash que aparecem no proxy do Railway
+  if (originalUrl.includes('//')) {
+    const correctedUrl = originalUrl.replace(/\/+/g, '/');
+    console.log('🔄 URL corrigida de duplo slash para:', correctedUrl);
+    req.url = correctedUrl;
+    req.originalUrl = correctedUrl;
+  }
+  
   // Apenas aplicar correções específicas para os padrões conhecidos problemáticos
   // e apenas para rotas de autenticação que estão com problemas específicos
   if (originalUrl.includes('infobva.up.railway.app') && originalUrl.includes('cursotecnicoinfobva-backend-production.up.railway.app')) {
@@ -137,14 +145,14 @@ app.use(cookieParser());
 // Servir arquivos estáticos da pasta public
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-// Aplicar middleware de banco de dados para todas as rotas, exceto autenticação
+// Rotas de autenticação (sem middleware de transação para evitar problemas com login/logout)
+// Aplicar middleware de banco de dados específico para rotas de autenticação
+app.use('/api/auth', dbConnectionMiddleware, authRoutes);
+app.use('/auth', dbConnectionMiddleware, authRoutes);
+
+// Aplicar middleware de banco de dados e transação para todas as outras rotas
 app.use(dbConnectionMiddleware);
 app.use(transactionMiddleware);
-
-// Rotas de autenticação (com middleware de banco de dados, mas sem transação)
-// O middleware de conexão agora detecta rotas de autenticação e não inicia transação
-app.use('/api/auth', authRoutes);
-app.use('/auth', authRoutes);
 
 
 // Rotas de fallback para lidar com URLs mal formadas do proxy do Railway
