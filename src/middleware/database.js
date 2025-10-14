@@ -190,21 +190,32 @@ export const transactionMiddleware = async (req, res, next) => {
     try {
       if (req.dbType === 'mysql') {
         // Operações para MySQL real
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          await req.db?.commit();
-          console.log('✅ Transação MySQL commit realizada');
+        if (req.db && req.db.state !== 'disconnected' && req.db.state !== 'closed') {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            await req.db.commit();
+            console.log('✅ Transação MySQL commit realizada');
+          } else {
+            await req.db.rollback();
+            console.log('.Rollback MySQL realizado');
+          }
         } else {
-          await req.db?.rollback();
-          console.log('.Rollback MySQL realizado');
+          console.log('⚠️ Conexão já estava fechada, pulando commit/rollback');
         }
-        await req.db?.end();
-        console.log('🔒 Conexão MySQL encerrada');
+        
+        if (req.db && req.db.state !== 'disconnected' && req.db.state !== 'closed') {
+          await req.db.end();
+          console.log('🔒 Conexão MySQL encerrada');
+        } else {
+          console.log('⚠️ Conexão já estava fechada, pulando encerramento');
+        }
       } else {
         // Para mock, não há transações reais
         console.log('🎬 Operações mockadas concluídas');
       }
     } catch (error) {
       console.error('❌ Erro ao finalizar transação:', error);
+      console.error('Código do erro:', error.code);
+      console.error('Mensagem do erro:', error.message);
     }
   };
 

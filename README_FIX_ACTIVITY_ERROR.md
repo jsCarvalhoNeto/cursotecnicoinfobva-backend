@@ -79,8 +79,10 @@ Após aplicar as correções:
 ## Importante
 
 - Esta correção deve ser aplicada no ambiente de produção (Railway)
-- O código do backend (`submitStudentActivity` no `activityController.js`) já está correto
-- Apenas a estrutura do banco de dados precisa ser atualizada
+- O código do backend foi atualizado para ser compatível com diferentes estruturas de banco de dados
+- A função `submitStudentActivity` agora verifica a estrutura da tabela antes da inserção
+- O endpoint `/api/activities/diagnostic` foi adicionado para verificar a estrutura da tabela
+- Apenas a estrutura do banco de dados precisa ser atualizada para resolver completamente o problema
 
 ## Migrações relacionadas
 

@@ -729,15 +729,64 @@ export const submitStudentActivity = async (req, res) => {
       });
     }
 
-    // Insere a submissão da atividade (usando a tabela activity_grades para armazenar submissões)
+    // Verificar a estrutura da tabela activity_grades para determinar a query de inserção apropriada
+    const [columnsResult] = await req.db.execute(`
+      SELECT COLUMN_NAME, IS_NULLABLE
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'activity_grades' AND TABLE_SCHEMA = DATABASE()
+    `);
+    
+    const columnNames = columnsResult.map(col => col.COLUMN_NAME);
+    const gradeColumn = columnsResult.find(col => col.COLUMN_NAME === 'grade');
+    const gradedByColumn = columnsResult.find(col => col.COLUMN_NAME === 'graded_by');
+    const studentNameColumn = columnsResult.find(col => col.COLUMN_NAME === 'student_name');
+    const teamMembersColumn = columnsResult.find(col => col.COLUMN_NAME === 'team_members');
+    const filePathColumn = columnsResult.find(col => col.COLUMN_NAME === 'file_path');
+    const fileNameColumn = columnsResult.find(col => col.COLUMN_NAME === 'file_name');
+    
+    // Determinar se campos são nullable
+    const gradeIsNullable = gradeColumn ? gradeColumn.IS_NULLABLE === 'YES' : false;
+    const gradedByIsNullable = gradedByColumn ? gradedByColumn.IS_NULLABLE === 'YES' : false;
+    
+    // Montar a query de inserção com base na estrutura existente
+    let insertQuery, insertParams;
+    
+    if (studentNameColumn && teamMembersColumn && filePathColumn && fileNameColumn) {
+      // Estrutura completa com campos de submissão
+      if (gradeIsNullable && gradedByIsNullable) {
+        // Estrutura atualizada - campos são nullable
+        insertQuery = `
+          INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members, file_path, file_name)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        insertParams = [activity_id, enrollment_id, null, null, student_name, team_members || null, file_path, file_name];
+      } else {
+        // Estrutura antiga - campos não são nullable, usar valores padrão
+        insertQuery = `
+          INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members, file_path, file_name)
+          VALUES (?, ?, 0.00, 0, ?, ?, ?)
+        `;
+        insertParams = [activity_id, enrollment_id, student_name, team_members || null, file_path, file_name];
+      }
+    } else {
+      // Estrutura antiga sem campos de submissão - adicionar primeiro
+      console.log('Estrutura da tabela incompleta - campos de submissão não existem');
+      return res.status(500).json({
+        error: 'Estrutura da tabela activity_grades incompleta. Execute as migrações 006 e 007.',
+        missing_columns: {
+          student_name: !studentNameColumn,
+          team_members: !teamMembersColumn,
+          file_path: !filePathColumn,
+          file_name: !fileNameColumn
+        }
+      });
+    }
+
+    // Insere a submissão da atividade
     console.log('Inserindo submissão da atividade:', { activity_id, enrollment_id, student_name, team_members, file_path, file_name });
-    const insertQuery = `
-      INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members, file_path, file_name)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
     console.log('Query de inserção:', insertQuery);
-    console.log('Parâmetros:', [activity_id, enrollment_id, null, null, student_name, team_members || null, file_path, file_name]);
-    const [result] = await req.db.execute(insertQuery, [activity_id, enrollment_id, null, null, student_name, team_members || null, file_path, file_name]);
+    console.log('Parâmetros:', insertParams);
+    const [result] = await req.db.execute(insertQuery, insertParams);
     console.log('Submissão inserida com ID:', result.insertId);
 
     // Retorna a submissão criada
