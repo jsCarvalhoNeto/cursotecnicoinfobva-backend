@@ -7,10 +7,6 @@ SET time_zone = '+00:00';
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- Drop tables in reverse order of creation to avoid foreign key constraints issues.
-DROP TABLE IF EXISTS `subject_schedule_details`;
-DROP TABLE IF EXISTS `subject_activities`;
-DROP TABLE IF EXISTS `subject_resources`;
-DROP TABLE IF EXISTS `subject_content`;
 DROP TABLE IF EXISTS `teacher_subjects`;
 DROP TABLE IF EXISTS `attendances`;
 DROP TABLE IF EXISTS `grades`;
@@ -46,7 +42,7 @@ CREATE TABLE `user_roles` (
   `user_id` INT NOT NULL,
   `role` ENUM('admin', 'teacher', 'student') NOT NULL,
   PRIMARY KEY (`user_id`, `role`),
- FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tabela de Disciplinas/Matérias.
@@ -123,76 +119,6 @@ CREATE TABLE `teacher_subjects` (
   UNIQUE KEY `unique_teacher_subject` (`teacher_id`, `subject_id`),
   FOREIGN KEY (`teacher_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
  FOREIGN KEY (`subject_id`) REFERENCES `subjects`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Tabela de Conteúdo de Disciplinas
-CREATE TABLE `subject_content` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `subject_id` INT NOT NULL,
-  `section_type` ENUM('content', 'material', 'activities', 'exercises', 'projects', 'evaluations', 'resources') NOT NULL,
-  `title` VARCHAR(255) NOT NULL,
-  `content` TEXT,
-  `order_index` INT DEFAULT 0,
-  `is_active` BOOLEAN DEFAULT TRUE,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (`subject_id`) REFERENCES `subjects`(`id`) ON DELETE CASCADE,
-  INDEX `idx_subject_section` (`subject_id`, `section_type`, `order_index`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Tabela para armazenar arquivos e recursos
-CREATE TABLE `subject_resources` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `subject_id` INT NOT NULL,
-  `section_type` ENUM('content', 'material', 'activities', 'exercises', 'projects', 'evaluations', 'resources') NOT NULL,
-  `resource_type` ENUM('file', 'link', 'video', 'pdf', 'image', 'document') NOT NULL,
-  `title` VARCHAR(255) NOT NULL,
-  `file_path` VARCHAR(500),
-  `file_url` VARCHAR(500),
-  `description` TEXT,
-  `order_index` INT DEFAULT 0,
-  `is_active` BOOLEAN DEFAULT TRUE,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (`subject_id`) REFERENCES `subjects`(`id`) ON DELETE CASCADE,
-  INDEX `idx_subject_resource` (`subject_id`, `section_type`, `resource_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Tabela para armazenar atividades e exercícios
-CREATE TABLE `subject_activities` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `subject_id` INT NOT NULL,
-  `activity_type` ENUM('activity', 'exercise', 'project', 'evaluation') NOT NULL,
-  `title` VARCHAR(255) NOT NULL,
-  `description` TEXT,
-  `instructions` TEXT,
-  `deadline` DATETIME,
-  `max_score` DECIMAL(5,2) DEFAULT 10.00,
-  `order_index` INT DEFAULT 0,
-  `is_active` BOOLEAN DEFAULT TRUE,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (`subject_id`) REFERENCES `subjects`(`id`) ON DELETE CASCADE,
-  INDEX `idx_subject_activity` (`subject_id`, `activity_type`, `deadline`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Tabela para armazenar cronograma detalhado
-CREATE TABLE `subject_schedule_details` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `subject_id` INT NOT NULL,
-  `lesson_number` INT NOT NULL,
-  `lesson_title` VARCHAR(255) NOT NULL,
-  `lesson_content` TEXT,
-  `has_notes` BOOLEAN DEFAULT FALSE,
-  `has_video` BOOLEAN DEFAULT FALSE,
-  `is_av1` BOOLEAN DEFAULT FALSE,
-  `is_av2` BOOLEAN DEFAULT FALSE,
-  `schedule_date` DATE,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (`subject_id`) REFERENCES `subjects`(`id`) ON DELETE CASCADE,
-  UNIQUE KEY `unique_lesson` (`subject_id`, `lesson_number`),
-  INDEX `idx_subject_date` (`subject_id`, `schedule_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tabela de Atividades: Armazena informações sobre atividades criadas pelos professores.

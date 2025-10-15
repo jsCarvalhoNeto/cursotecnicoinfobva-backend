@@ -31,9 +31,4 @@ router.get('/:id/subjects', studentController.getSubjects);
 // Rota para buscar alunos filtrados por série
 router.get('/grade/:grade', studentController.getByGrade);
 
-// Rotas para gerenciar matrículas
-router.post('/:id/enroll', studentController.enrollInSubject);
-router.delete('/:id/unenroll', studentController.removeFromSubject);
-router.get('/:id/available-subjects', studentController.getAvailableSubjects);
-
 export default router;

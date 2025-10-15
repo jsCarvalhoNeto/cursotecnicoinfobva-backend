@@ -1,6 +1,3 @@
-// Importar o serviço de cache
-import { cacheService, createCacheKey } from '../services/cacheService.js';
-
 // Função para tratamento de erros
 const handleError = (res, error) => {
   console.error('Erro no controller:', error);
@@ -67,7 +64,7 @@ export const createActivityGrade = async (req, res) => {
     // Inserir a nova nota - usando apenas colunas que existem na tabela
     const insertQuery = `
       INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members)
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?)
     `;
     const [result] = await req.db.execute(insertQuery, [
       activity_id,
@@ -224,11 +221,6 @@ export const createActivity = async (req, res) => {
     console.log('Recebendo requisição para criar atividade:', req.body);
     console.log('User ID autenticado:', req.userId);
     console.log('Arquivo recebido:', req.file);
-    console.log('Cookies recebidos:', req.cookies);
-    console.log('Headers recebidos:', req.headers);
-    console.log('Query params recebidos:', req.query);
-    console.log('DB Type:', req.dbType);
-    console.log('DB Connection State:', req.db ? req.db.state : 'no connection');
     
     // Ignorar o campo 'grade' do req.body para evitar conflitos
     const { name, subject_id, type, description, deadline, period, evaluation_type } = req.body;
@@ -308,15 +300,9 @@ export const createActivity = async (req, res) => {
 
     // Insere a atividade - usar a série da disciplina e os novos campos de período e avaliação
     console.log('Inserindo atividade:', { name, subject_id, grade, type, teacher_id, description, deadline: formattedDeadline, file_path, file_name, period, evaluation_type });
-    console.log('Query de inserção:', `
-      INSERT INTO activities (name, subject_id, grade, type, teacher_id, description, deadline, file_path, file_name, period, evaluation_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    console.log('Parâmetros:', [name, subject_id, grade, type, teacher_id, description || null, formattedDeadline, file_path, file_name, period || null, evaluation_type || null]);
-    
     const insertQuery = `
       INSERT INTO activities (name, subject_id, grade, type, teacher_id, description, deadline, file_path, file_name, period, evaluation_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const [result] = await req.db.execute(insertQuery, [name, subject_id, grade, type, teacher_id, description || null, formattedDeadline, file_path, file_name, period || null, evaluation_type || null]);
     console.log('Atividade inserida com ID:', result.insertId);
@@ -337,9 +323,6 @@ export const createActivity = async (req, res) => {
   } catch (error) {
     console.error('Erro ao criar atividade:', error);
     console.error('Stack do erro:', error.stack);
-    console.error('Mensagem do erro:', error.message);
-    console.error('Código do erro:', error.code);
-    console.error('Número do erro:', error.errno);
     handleError(res, error);
   }
 };
@@ -602,16 +585,6 @@ export const getActivitiesByStudent = async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado. Usuário não é um aluno' });
     }
 
-    // Criar chave de cache para esta requisição
-    const cacheKey = createCacheKey('student_activities', { student_id, timestamp: Math.floor(Date.now() / 60000) }); // Cache por minuto
-
-    // Tentar obter do cache primeiro
-    const cachedResult = cacheService.get(cacheKey);
-    if (cachedResult) {
-      console.log('Retornando atividades do aluno do cache');
-      return res.json(cachedResult);
-    }
-
     // Obter as disciplinas do aluno através da tabela de matrículas
     const enrollmentsQuery = `
       SELECT DISTINCT s.id as subject_id, s.name as subject_name, p.full_name as teacher_name
@@ -630,55 +603,34 @@ export const getActivitiesByStudent = async (req, res) => {
 
     if (subjectIds.length === 0) {
       console.log('Aluno não está matriculado em nenhuma disciplina');
-      const emptyResult = [];
-      cacheService.set(cacheKey, emptyResult, 2 * 60 * 1000); // Cache por 2 minutos
-      return res.json(emptyResult); // Retorna array vazio se o aluno não estiver matriculado em nenhuma disciplina
+      return res.json([]); // Retorna array vazio se o aluno não estiver matriculado em nenhuma disciplina
     }
 
     // Buscar atividades para todas as disciplinas do aluno
     // Incluir também informações sobre submissões e notas para determinar o status
-    // Otimização: Usar uma query mais eficiente com EXISTS em vez de LEFT JOINs complexos
     const activitiesQuery = `
       SELECT 
-        a.id,
-        a.name,
-        a.subject_id,
-        a.grade,
-        a.type,
-        a.teacher_id,
-        a.description,
-        a.deadline,
-        a.file_path,
-        a.file_name,
-        a.created_at,
-        a.updated_at,
-        a.period,
-        a.evaluation_type,
-        s.name as subject_name,
+        a.*,
         p.full_name as teacher_name,
-        COALESCE(ag.grade, NULL) as student_grade,
-        COALESCE(ag.graded_at, NULL) as grade_date,
+        s.name as subject_name,
+        ag.grade as student_grade,
+        ag.graded_at as grade_date,
         CASE 
           WHEN ag.grade IS NOT NULL THEN 'completed'
           WHEN ag.grade IS NULL AND ag.student_name IS NOT NULL THEN 'submitted'
           ELSE 'pending'
         END as status
       FROM activities a
-      JOIN subjects s ON a.subject_id = s.id
       JOIN users u ON a.teacher_id = u.id
       JOIN profiles p ON u.id = p.user_id
-      LEFT JOIN activity_grades ag ON ag.activity_id = a.id 
-        AND ag.enrollment_id IN (
-          SELECT e2.id FROM enrollments e2 WHERE e2.student_id = ? AND e2.subject_id = a.subject_id
-        )
+      JOIN subjects s ON a.subject_id = s.id
+      LEFT JOIN enrollments e ON e.student_id = ? AND e.subject_id = a.subject_id
+      LEFT JOIN activity_grades ag ON ag.activity_id = a.id AND ag.enrollment_id = e.id
       WHERE a.subject_id IN (${subjectIds.map(() => '?').join(',')})
       ORDER BY a.created_at DESC
     `;
     const [activitiesResult] = await req.db.execute(activitiesQuery, [student_id, ...subjectIds]);
     console.log('Atividades encontradas:', activitiesResult.length);
-
-    // Armazenar no cache
-    cacheService.set(cacheKey, activitiesResult, 2 * 60 * 1000); // Cache por 2 minutos
 
     res.json(activitiesResult);
   } catch (error) {
@@ -777,64 +729,15 @@ export const submitStudentActivity = async (req, res) => {
       });
     }
 
-    // Verificar a estrutura da tabela activity_grades para determinar a query de inserção apropriada
-    const [columnsResult] = await req.db.execute(`
-      SELECT COLUMN_NAME, IS_NULLABLE
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_NAME = 'activity_grades' AND TABLE_SCHEMA = DATABASE()
-    `);
-    
-    const columnNames = columnsResult.map(col => col.COLUMN_NAME);
-    const gradeColumn = columnsResult.find(col => col.COLUMN_NAME === 'grade');
-    const gradedByColumn = columnsResult.find(col => col.COLUMN_NAME === 'graded_by');
-    const studentNameColumn = columnsResult.find(col => col.COLUMN_NAME === 'student_name');
-    const teamMembersColumn = columnsResult.find(col => col.COLUMN_NAME === 'team_members');
-    const filePathColumn = columnsResult.find(col => col.COLUMN_NAME === 'file_path');
-    const fileNameColumn = columnsResult.find(col => col.COLUMN_NAME === 'file_name');
-    
-    // Determinar se campos são nullable
-    const gradeIsNullable = gradeColumn ? gradeColumn.IS_NULLABLE === 'YES' : false;
-    const gradedByIsNullable = gradedByColumn ? gradedByColumn.IS_NULLABLE === 'YES' : false;
-    
-    // Montar a query de inserção com base na estrutura existente
-    let insertQuery, insertParams;
-    
-    if (studentNameColumn && teamMembersColumn && filePathColumn && fileNameColumn) {
-      // Estrutura completa com campos de submissão
-      if (gradeIsNullable && gradedByIsNullable) {
-        // Estrutura atualizada - campos são nullable
-        insertQuery = `
-          INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members, file_path, file_name)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        insertParams = [activity_id, enrollment_id, null, null, student_name, team_members || null, file_path, file_name];
-      } else {
-        // Estrutura antiga - campos não são nullable, usar valores padrão
-        insertQuery = `
-          INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members, file_path, file_name)
-          VALUES (?, ?, 0.00, 0, ?, ?, ?)
-        `;
-        insertParams = [activity_id, enrollment_id, student_name, team_members || null, file_path, file_name];
-      }
-    } else {
-      // Estrutura antiga sem campos de submissão - adicionar primeiro
-      console.log('Estrutura da tabela incompleta - campos de submissão não existem');
-      return res.status(500).json({
-        error: 'Estrutura da tabela activity_grades incompleta. Execute as migrações 006 e 007.',
-        missing_columns: {
-          student_name: !studentNameColumn,
-          team_members: !teamMembersColumn,
-          file_path: !filePathColumn,
-          file_name: !fileNameColumn
-        }
-      });
-    }
-
-    // Insere a submissão da atividade
+    // Insere a submissão da atividade (usando a tabela activity_grades para armazenar submissões)
     console.log('Inserindo submissão da atividade:', { activity_id, enrollment_id, student_name, team_members, file_path, file_name });
+    const insertQuery = `
+      INSERT INTO activity_grades (activity_id, enrollment_id, grade, graded_by, student_name, team_members, file_path, file_name)
+      VALUES (?, ?, NULL, NULL, ?, ?, ?, ?)
+    `;
     console.log('Query de inserção:', insertQuery);
-    console.log('Parâmetros:', insertParams);
-    const [result] = await req.db.execute(insertQuery, insertParams);
+    console.log('Parâmetros:', [activity_id, enrollment_id, student_name, team_members || null, file_path, file_name]);
+    const [result] = await req.db.execute(insertQuery, [activity_id, enrollment_id, student_name, team_members || null, file_path, file_name]);
     console.log('Submissão inserida com ID:', result.insertId);
 
     // Retorna a submissão criada

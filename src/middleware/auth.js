@@ -1,112 +1,68 @@
 import dotenv from 'dotenv';
-import { cacheService, createCacheKey } from '../services/cacheService.js';
 
 dotenv.config();
 
 // Middleware para verificar autenticação
 export const requireAuth = async (req, res, next) => {
-  console.log('🔍 requireAuth - Iniciando verificação de autenticação');
-  console.log('🔍 requireAuth - Método:', req.method);
-  console.log('🔍 requireAuth - URL:', req.url);
-  console.log('🔍 requireAuth - Headers:', req.headers);
-  console.log('🔍 requireAuth - Cookie sessionId:', req.cookies.sessionId);
-  console.log('🔍 requireAuth - Banco de dados:', req.db ? 'disponível' : 'não disponível');
-  console.log('🔍 requireAuth - Tipo de banco de dados:', req.dbType);
-  
   const sessionId = req.cookies.sessionId;
   
   if (!sessionId) {
-    console.log('❌ requireAuth - Nenhum sessionId encontrado nos cookies');
     return res.status(401).json({ error: 'Não autenticado' });
   }
 
   try {
     if (req.dbType === 'mysql') {
-      // Lógica para MySQL real - usar a conexão já estabelecida
-      console.log('🔍 requireAuth - Usando banco de dados MySQL real');
+      // Lógica para MySQL real
+      const db = await import('mysql2/promise');
+      const dbConfig = {
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME || 'informatica_wave'
+      };
+      
+      const connection = await db.default.createConnection(dbConfig);
       try {
-        // Criar chave de cache para as informações do usuário
-        const cacheKey = createCacheKey('user_auth', { sessionId });
-        const cachedAuth = cacheService.get(cacheKey);
+        // Verificar se o usuário existe e tem papéis atribuídos
+        const [users] = await connection.execute('SELECT id FROM users WHERE id = ?', [sessionId]);
         
-        if (cachedAuth) {
-          console.log('🔍 requireAuth - Usando dados de autenticação do cache para:', sessionId);
-          req.user = { id: sessionId, db: req.db };
-          req.userId = sessionId;
-          req.userRoles = cachedAuth.roles;
-          req.userRole = cachedAuth.roles[0];
-          console.log('✅ requireAuth - Autenticação bem-sucedida (cache) para usuário:', sessionId, 'Papéis:', req.userRoles);
-          return next();
-        }
-
-        // Verificar se o usuário existe e tem papéis atribuídos (query otimizada)
-        const [result] = await req.db.execute(`
-          SELECT u.id, ur.role
-          FROM users u
-          LEFT JOIN user_roles ur ON u.id = ur.user_id
-          WHERE u.id = ?
-        `, [sessionId]);
-        
-        console.log('🔍 requireAuth - Resultado busca usuário e papéis:', result.length, 'registros encontrados');
-        
-        if (result.length === 0) {
-          console.log('❌ requireAuth - Usuário não encontrado com ID:', sessionId);
-          return res.status(401).json({ error: 'Sessão inválida' });
-        }
-
-        // Extrair papéis do resultado
-        const roles = result.filter(row => row.role).map(row => row.role);
-        console.log('🔍 requireAuth - Papéis encontrados:', roles);
-        
-        if (roles.length === 0) {
-          console.log('❌ requireAuth - Usuário não tem papéis atribuídos:', sessionId);
-          return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
-        }
-
-        // Armazenar no cache (tempo menor para segurança)
-        cacheService.set(cacheKey, { roles }, 5 * 60 * 1000); // 5 minutos
-
-        req.user = { id: sessionId, db: req.db };
-        req.userId = sessionId;
-        req.userRoles = roles;
-        req.userRole = roles[0];
-        console.log('✅ requireAuth - Autenticação bem-sucedida para usuário:', sessionId, 'Papéis:', req.userRoles);
-        next();
-      } catch (error) {
-        console.error('❌ Erro na verificação de autenticação com banco MySQL:', error);
-        res.status(500).json({ error: 'Erro na verificação de autenticação.' });
-      }
-    } else {
-      // Lógica para banco de dados mockado
-      console.log('🔍 requireAuth - Usando banco de dados mockado');
-      try {
-        const user = req.db.getUserById(sessionId);
-        console.log('🔍 requireAuth - Resultado busca usuário mockado:', user ? 'encontrado' : 'não encontrado');
-        if (!user) {
-          console.log('❌ requireAuth - Usuário não encontrado no banco mockado:', sessionId);
+        if (users.length === 0) {
           return res.status(401).json({ error: 'Sessão inválida' });
         }
         
-        const roles = req.db.getRolesByUserId(sessionId);
-        console.log('🔍 requireAuth - Resultado busca papéis mockado:', roles.length, 'papéis encontrados');
+        // Verificar se o usuário tem pelo menos um papel atribuído
+        const [roles] = await connection.execute('SELECT role FROM user_roles WHERE user_id = ?', [sessionId]);
+        
         if (roles.length === 0) {
-          console.log('❌ requireAuth - Usuário não tem papéis no banco mockado:', sessionId);
           return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
         }
         
-        req.user = { id: sessionId, db: req.db };
         req.userId = sessionId;
         req.userRoles = roles.map(role => role.role);
         req.userRole = roles[0].role;
-        console.log('✅ requireAuth - Autenticação mockada bem-sucedida para usuário:', sessionId, 'Papéis:', req.userRoles);
         next();
-      } catch (error) {
-        console.error('❌ Erro na verificação de autenticação com banco mockado:', error);
-        res.status(500).json({ error: 'Erro na verificação de autenticação.' });
+      } finally {
+        await connection.end();
       }
+    } else {
+      // Lógica para banco de dados mockado
+      const user = req.db.getUserById(sessionId);
+      if (!user) {
+        return res.status(401).json({ error: 'Sessão inválida' });
+      }
+      
+      const roles = req.db.getRolesByUserId(sessionId);
+      if (roles.length === 0) {
+        return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
+      }
+      
+      req.userId = sessionId;
+      req.userRoles = roles.map(role => role.role);
+      req.userRole = roles[0].role;
+      next();
     }
   } catch (error) {
-    console.error('❌ Erro geral na verificação de autenticação:', error);
+    console.error('Erro na verificação de autenticação:', error);
     res.status(500).json({ error: 'Erro na verificação de autenticação.' });
   }
 };
@@ -179,7 +135,16 @@ export const checkResourceAccess = (resourceType) => {
 
     try {
       if (req.dbType === 'mysql') {
-        // Lógica para MySQL real - usar a conexão já estabelecida
+        // Lógica para MySQL real
+        const db = await import('mysql2/promise');
+        const dbConfig = {
+          host: process.env.DB_HOST || 'localhost',
+          user: process.env.DB_USER || 'root',
+          password: process.env.DB_PASSWORD || '',
+          database: process.env.DB_NAME || 'informatica_wave'
+        };
+        
+        const connection = await db.default.createConnection(dbConfig);
         try {
           let hasAccess = false;
           let ownerCheckQuery = '';
@@ -227,7 +192,7 @@ export const checkResourceAccess = (resourceType) => {
           }
 
           if (ownerCheckQuery) {
-            const [result] = await req.db.execute(ownerCheckQuery, queryParams);
+            const [result] = await connection.execute(ownerCheckQuery, queryParams);
             hasAccess = result.length > 0;
           }
 
@@ -236,19 +201,13 @@ export const checkResourceAccess = (resourceType) => {
           }
 
           next();
-        } catch (error) {
-          console.error('Erro na verificação de acesso ao recurso com banco MySQL:', error);
-          res.status(500).json({ error: 'Erro na verificação de acesso ao recurso.' });
+        } finally {
+          await connection.end();
         }
       } else {
         // Para mock, vamos permitir acesso básico (você pode implementar lógica mais complexa se necessário)
         // Por enquanto, vamos assumir que o usuário tem permissão básica
-        try {
-          next();
-        } catch (error) {
-          console.error('Erro na verificação de acesso ao recurso com banco mockado:', error);
-          res.status(500).json({ error: 'Erro na verificação de acesso ao recurso.' });
-        }
+        next();
       }
     } catch (error) {
       console.error('Erro na verificação de acesso ao recurso:', error);
