@@ -4,38 +4,77 @@ import { mockDbUtils } from '../lib/mockDatabase.js';
 
 dotenv.config();
 
-console.log('🔍 Debug - Variáveis de ambiente do banco de dados:');
-console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_NAME:', process.env.DB_NAME);
-console.log('NODE_ENV:', process.env.NODE_ENV);
+// Configuração do pool de conexões
+let pool;
+let poolInitialized = false;
 
-// Configuração da conexão: prioriza DATABASE_URL, senão usa variáveis separadas
-let dbConnectionOptions;
-if (process.env.DATABASE_URL) {
-  console.log('🎯 Usando DATABASE_URL para conexão');
-  // Para DATABASE_URL, precisamos parsear a string de conexão
-  try {
-    const url = new URL(process.env.DATABASE_URL);
-    dbConnectionOptions = {
-      host: url.hostname,
-      user: url.username,
-      password: url.password,
-      database: url.pathname.slice(1), // remove a barra inicial
-      port: parseInt(url.port) || 3306,
-      ssl: url.searchParams.get('ssl') === 'true' ? { rejectUnauthorized: false } : false,
-      connectTimeout: 6000,
-      multipleStatements: true,
-      timezone: 'Z',
-      charset: 'utf8mb4',
-      insecureAuth: true,
-      supportBigNumbers: true,
-      bigNumberStrings: true
-    };
-  } catch (error) {
-    console.error('❌ Erro ao parsear DATABASE_URL:', error.message);
-    // Fallback para variáveis separadas
+function initializePool() {
+  if (poolInitialized) return pool;
+  
+  console.log('🔍 Debug - Variáveis de ambiente do banco de dados:');
+  console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+  console.log('DB_HOST:', process.env.DB_HOST);
+  console.log('DB_USER:', process.env.DB_USER);
+  console.log('DB_NAME:', process.env.DB_NAME);
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+
+  // Configuração da conexão: prioriza DATABASE_URL, senão usa variáveis separadas
+  let dbConnectionOptions;
+  if (process.env.DATABASE_URL) {
+    console.log('🎯 Usando DATABASE_URL para conexão');
+    // Para DATABASE_URL, precisamos parsear a string de conexão
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      dbConnectionOptions = {
+        host: url.hostname,
+        user: url.username,
+        password: url.password,
+        database: url.pathname.slice(1), // remove a barra inicial
+        port: parseInt(url.port) || 306,
+        ssl: url.searchParams.get('ssl') === 'true' ? { rejectUnauthorized: false } : false,
+        connectTimeout: 60000, // Aumentado para 60 segundos
+        multipleStatements: true,
+        timezone: 'Z',
+        charset: 'utf8mb4',
+        insecureAuth: true,
+        supportBigNumbers: true,
+        bigNumberStrings: true,
+        // Configurações do pool
+        connectionLimit: 10,
+        queueLimit: 0,
+        acquireTimeout: 60000,
+        timeout: 60000,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0
+      };
+    } catch (error) {
+      console.error('❌ Erro ao parsear DATABASE_URL:', error.message);
+      // Fallback para variáveis separadas
+      dbConnectionOptions = {
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '', // Senha vazia para phpMyAdmin
+        database: process.env.DB_NAME || 'josedo64_sisctibalbina',
+        port: parseInt(process.env.DB_PORT) || 3306,
+        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+        connectTimeout: 60000, // Aumentado para 60 segundos
+        multipleStatements: true,
+        timezone: 'Z',
+        charset: 'utf8mb4',
+        insecureAuth: true,
+        supportBigNumbers: true,
+        bigNumberStrings: true,
+        // Configurações do pool
+        connectionLimit: 10,
+        queueLimit: 0,
+        acquireTimeout: 60000,
+        timeout: 600,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0
+      };
+    }
+  } else {
+    console.log('🎯 Usando variáveis de ambiente separadas para conexão');
     dbConnectionOptions = {
       host: process.env.DB_HOST || 'localhost',
       user: process.env.DB_USER || 'root',
@@ -43,47 +82,43 @@ if (process.env.DATABASE_URL) {
       database: process.env.DB_NAME || 'josedo64_sisctibalbina',
       port: parseInt(process.env.DB_PORT) || 3306,
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-      connectTimeout: 6000,
+      connectTimeout: 60000, // Aumentado para 60 segundos
       multipleStatements: true,
       timezone: 'Z',
       charset: 'utf8mb4',
       insecureAuth: true,
       supportBigNumbers: true,
-      bigNumberStrings: true
+      bigNumberStrings: true,
+      // Configurações do pool
+      connectionLimit: 10,
+      queueLimit: 0,
+      acquireTimeout: 60000,
+      timeout: 60000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0
     };
   }
-} else {
-  console.log('🎯 Usando variáveis de ambiente separadas para conexão');
-  dbConnectionOptions = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '', // Senha vazia para phpMyAdmin
-    database: process.env.DB_NAME || 'josedo64_sisctibalbina',
-    port: parseInt(process.env.DB_PORT) || 3306,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-    connectTimeout: 600,
-    multipleStatements: true,
-    timezone: 'Z',
-    charset: 'utf8mb4',
-    insecureAuth: true,
-    supportBigNumbers: true,
-    bigNumberStrings: true
-  };
-}
 
-console.log('📡 Configuração de conexão final:', {
-  host: dbConnectionOptions.host,
-  user: dbConnectionOptions.user,
-  database: dbConnectionOptions.database,
-  port: dbConnectionOptions.port
-});
+  console.log('📡 Configuração de pool final:', {
+    host: dbConnectionOptions.host,
+    user: dbConnectionOptions.user,
+    database: dbConnectionOptions.database,
+    port: dbConnectionOptions.port,
+    connectionLimit: dbConnectionOptions.connectionLimit
+  });
+
+  pool = mysql.createPool(dbConnectionOptions);
+  poolInitialized = true;
+  return pool;
+}
 
 // Função para testar conexão com MySQL e verificar se tabelas existem
 async function testMySQLConnection() {
   let connection;
   try {
     console.log('🔌 Tentando conectar ao MySQL...');
-    connection = await mysql.createConnection(dbConnectionOptions);
+    const pool = initializePool();
+    connection = await pool.getConnection();
     console.log('✅ Conexão MySQL estabelecida com sucesso!');
 
     // Pega o nome do banco de dados da conexão atual
@@ -93,8 +128,7 @@ async function testMySQLConnection() {
 
     if (!dbName) {
       console.log('Nenhum banco de dados selecionado na conexão. Pulando verificação de tabelas.');
-      await connection.end();
-      // Consideramos a conexão bem-sucedida se o servidor respondeu, mesmo sem um DB.
+      connection.release(); // Libera a conexão de volta ao pool
       return true;
     }
 
@@ -112,13 +146,13 @@ async function testMySQLConnection() {
 
       if (result[0].count === 0) {
         console.log(`Tabela ${table} não encontrada no banco de dados ${dbName}`);
-        await connection.end();
+        connection.release(); // Libera a conexão de volta ao pool
         return false;
       }
     }
 
     console.log('✅ Verificação de tabelas concluída com sucesso!');
-    await connection.end();
+    connection.release(); // Libera a conexão de volta ao pool
     return true;
   } catch (error) {
     console.error('❌ Erro na conexão MySQL:', error.message);
@@ -137,10 +171,10 @@ async function testMySQLConnection() {
     
     if (connection) {
       try {
-        await connection.end();
-        console.log('🔒 Conexão encerrada após erro');
+        connection.release(); // Libera a conexão de volta ao pool
+        console.log('🔒 Conexão liberada de volta ao pool após erro');
       } catch (closeError) {
-        console.error('Erro ao fechar conexão:', closeError.message);
+        console.error('Erro ao liberar conexão:', closeError.message);
       }
     }
     return false;
@@ -153,11 +187,12 @@ export const dbConnectionMiddleware = async (req, res, next) => {
     console.log('🔍 Iniciando middleware de conexão com banco de dados...');
     console.log('🔍 URL da requisição:', req.url);
     
-    // Para evitar overhead de teste de conexão em cada requisição, vamos tentar conectar diretamente
+    // Para evitar overhead de teste de conexão em cada requisição, vamos tentar obter conexão do pool
     // e usar mock se falhar
     try {
-      console.log('🎯 Tentando conectar ao MySQL real...');
-      req.db = await mysql.createConnection(dbConnectionOptions);
+      console.log('🎯 Tentando obter conexão do pool MySQL...');
+      const pool = initializePool();
+      req.db = await pool.getConnection();
       
       // Não iniciar transação para rotas de autenticação
       const authRoutes = ['/auth', '/api/auth'];
@@ -172,7 +207,7 @@ export const dbConnectionMiddleware = async (req, res, next) => {
       
       req.dbType = 'mysql';
     } catch (connectionError) {
-      console.error('❌ Erro ao conectar ao MySQL real:', connectionError.message);
+      console.error('❌ Erro ao obter conexão do pool MySQL:', connectionError.message);
       console.log('🎯 Usando banco de dados mockado devido ao erro de conexão');
       req.db = mockDbUtils;
       req.dbType = 'mock';
@@ -201,24 +236,28 @@ export const transactionMiddleware = async (req, res, next) => {
 
     try {
       if (req.dbType === 'mysql') {
-        // Operações para MySQL real
-        if (req.db && req.db.state !== 'disconnected' && req.db.state !== 'closed') {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            await req.db.commit();
-            console.log('✅ Transação MySQL commit realizada');
-          } else {
-            await req.db.rollback();
-            console.log('.Rollback MySQL realizado');
+        // Operações para MySQL real - usando pool de conexões
+        if (req.db) {
+          try {
+            if (res.statusCode >= 20 && res.statusCode < 300) {
+              await req.db.commit();
+              console.log('✅ Transação MySQL commit realizada');
+            } else {
+              await req.db.rollback();
+              console.log('.Rollback MySQL realizado');
+            }
+          } catch (transactionError) {
+            console.error('❌ Erro na transação:', transactionError);
+            try {
+              await req.db.rollback(); // Tentar rollback em caso de erro
+            } catch (rollbackError) {
+              console.error('❌ Erro no rollback:', rollbackError);
+            }
+          } finally {
+            // Libera a conexão de volta ao pool (em vez de encerrar)
+            req.db.release();
+            console.log('🔒 Conexão liberada de volta ao pool');
           }
-        } else {
-          console.log('⚠️ Conexão já estava fechada, pulando commit/rollback');
-        }
-        
-        if (req.db && req.db.state !== 'disconnected' && req.db.state !== 'closed') {
-          await req.db.end();
-          console.log('🔒 Conexão MySQL encerrada');
-        } else {
-          console.log('⚠️ Conexão já estava fechada, pulando encerramento');
         }
       } else {
         // Para mock, não há transações reais

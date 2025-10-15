@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { cacheService, createCacheKey } from '../services/cacheService.js';
 
 dotenv.config();
 
@@ -24,28 +25,51 @@ export const requireAuth = async (req, res, next) => {
       // Lógica para MySQL real - usar a conexão já estabelecida
       console.log('🔍 requireAuth - Usando banco de dados MySQL real');
       try {
-        // Verificar se o usuário existe e tem papéis atribuídos
-        const [users] = await req.db.execute('SELECT id FROM users WHERE id = ?', [sessionId]);
-        console.log('🔍 requireAuth - Resultado busca usuário:', users.length, 'usuários encontrados');
+        // Criar chave de cache para as informações do usuário
+        const cacheKey = createCacheKey('user_auth', { sessionId });
+        const cachedAuth = cacheService.get(cacheKey);
         
-        if (users.length === 0) {
+        if (cachedAuth) {
+          console.log('🔍 requireAuth - Usando dados de autenticação do cache para:', sessionId);
+          req.user = { id: sessionId, db: req.db };
+          req.userId = sessionId;
+          req.userRoles = cachedAuth.roles;
+          req.userRole = cachedAuth.roles[0];
+          console.log('✅ requireAuth - Autenticação bem-sucedida (cache) para usuário:', sessionId, 'Papéis:', req.userRoles);
+          return next();
+        }
+
+        // Verificar se o usuário existe e tem papéis atribuídos (query otimizada)
+        const [result] = await req.db.execute(`
+          SELECT u.id, ur.role
+          FROM users u
+          LEFT JOIN user_roles ur ON u.id = ur.user_id
+          WHERE u.id = ?
+        `, [sessionId]);
+        
+        console.log('🔍 requireAuth - Resultado busca usuário e papéis:', result.length, 'registros encontrados');
+        
+        if (result.length === 0) {
           console.log('❌ requireAuth - Usuário não encontrado com ID:', sessionId);
           return res.status(401).json({ error: 'Sessão inválida' });
         }
-        
-        // Verificar se o usuário tem pelo menos um papel atribuído
-        const [roles] = await req.db.execute('SELECT role FROM user_roles WHERE user_id = ?', [sessionId]);
-        console.log('🔍 requireAuth - Resultado busca papéis:', roles.length, 'papéis encontrados');
+
+        // Extrair papéis do resultado
+        const roles = result.filter(row => row.role).map(row => row.role);
+        console.log('🔍 requireAuth - Papéis encontrados:', roles);
         
         if (roles.length === 0) {
           console.log('❌ requireAuth - Usuário não tem papéis atribuídos:', sessionId);
           return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
         }
-        
+
+        // Armazenar no cache (tempo menor para segurança)
+        cacheService.set(cacheKey, { roles }, 5 * 60 * 1000); // 5 minutos
+
         req.user = { id: sessionId, db: req.db };
         req.userId = sessionId;
-        req.userRoles = roles.map(role => role.role);
-        req.userRole = roles[0].role;
+        req.userRoles = roles;
+        req.userRole = roles[0];
         console.log('✅ requireAuth - Autenticação bem-sucedida para usuário:', sessionId, 'Papéis:', req.userRoles);
         next();
       } catch (error) {
