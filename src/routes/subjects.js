@@ -13,7 +13,7 @@ router.post('/', subjectController.create);
 // Rota para buscar todas as disciplinas
 router.get('/', subjectController.getAll);
 
-// Rota para buscar uma disciplina por ID
+// Rota para buscar uma disciplina específica por ID
 router.get('/:id', subjectController.getById);
 
 // Rota para buscar alunos por disciplina

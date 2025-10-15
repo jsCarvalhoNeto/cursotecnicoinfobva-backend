@@ -45,7 +45,7 @@ export const userController = {
  getAll: async (req, res) => {
     try {
       const [rows] = await req.db.execute(`
-        SELECT u.id, u.email, u.created_at, p.full_name, p.student_registration, p.grade
+        SELECT u.id, u.email, u.created_at, p.full_name, p.student_registration
         FROM users u
         LEFT JOIN profiles p ON u.id = p.user_id
         ORDER BY u.created_at DESC

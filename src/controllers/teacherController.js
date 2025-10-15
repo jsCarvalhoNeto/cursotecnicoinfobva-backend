@@ -220,48 +220,33 @@ export const getCalendarEvents = async (req, res) => {
 
   try {
     // Verificar se a tabela calendar_events existe
-    const dbName = process.env.DB_NAME || 'railway';
-    let tableExists = false;
+    const [tableCheck] = await req.db.execute(`
+      SELECT COUNT(*) as count 
+      FROM information_schema.tables 
+      WHERE table_schema = ? AND table_name = 'calendar_events'
+    `, [process.env.DB_NAME]);
     
-    try {
-      const [tableCheck] = await req.db.execute(`
-        SELECT COUNT(*) as count 
-        FROM information_schema.tables 
-        WHERE table_schema = ? AND table_name = 'calendar_events'
-      `, [dbName]);
-      
-      tableExists = tableCheck[0].count > 0;
-      console.log('Verificação da tabela calendar_events:', tableExists);
-    } catch (tableError) {
-      console.log('Erro ao verificar tabela calendar_events, assumindo que não existe:', tableError.message);
-      tableExists = false;
-    }
+    console.log('Verificação da tabela calendar_events:', tableCheck[0].count);
     
-    if (!tableExists) {
+    if (tableCheck[0].count === 0) {
       // Se a tabela não existe, retornar array vazio
       console.log('Tabela calendar_events não existe, retornando array vazio');
       return res.status(200).json([]);
     }
     
     // Buscar eventos relacionados às disciplinas do professor
-    const teacherId = parseInt(id);
-    if (isNaN(teacherId)) {
-      return res.status(400).json({ error: 'ID do professor inválido.' });
-    }
-
     const [rows] = await req.db.execute(`
       SELECT c.id, c.title, c.date, c.time, c.type, c.description, s.id as subject_id, s.name as subject_name
       FROM calendar_events c
       LEFT JOIN subjects s ON c.subject_id = s.id
       WHERE s.teacher_id = ? OR c.created_by = ?
       ORDER BY c.date, c.time
-    `, [teacherId, teacherId]);
+    `, [id, id]);
 
     console.log('Eventos encontrados:', rows.length);
     res.status(200).json(rows);
   } catch (error) {
     console.error('Erro ao buscar eventos do calendário:', error);
-    console.error('Stack do erro:', error.stack);
     res.status(500).json({ error: 'Erro ao buscar eventos do calendário.' });
   }
 };

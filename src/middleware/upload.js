@@ -1,26 +1,16 @@
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs';
 
 // Obter o diretório atual (equivalente ao __dirname do CommonJS)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Função para garantir que o diretório exista
-const ensureDirectoryExists = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log('Diretório criado:', dir);
-  }
-};
 
 // Configurar armazenamento
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // Criar diretório de uploads se não existir
     const uploadDir = path.join(__dirname, '../public/uploads/activities');
-    ensureDirectoryExists(uploadDir);
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {

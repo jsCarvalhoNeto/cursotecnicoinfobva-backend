@@ -96,30 +96,7 @@ export const subjectController = {
       console.error('Erro ao buscar disciplinas:', error);
       res.status(500).json({ error: 'Erro ao buscar dados do banco de dados.' });
     }
-  },
-
-  // Rota para buscar uma disciplina por ID
-  getById: async (req, res) => {
-    const { id } = req.params;
-    try {
-      const [rows] = await req.db.execute(
-        `
-        SELECT s.*, p.full_name as teacher_name
-        FROM subjects s
-        LEFT JOIN profiles p ON s.teacher_id = p.user_id
-        WHERE s.id = ?
-      `,
-        [id]
-      );
-      if (rows.length === 0) {
-        return res.status(404).json({ error: 'Disciplina não encontrada.' });
-      }
-      res.status(200).json(rows[0]);
-    } catch (error) {
-      console.error('Erro ao buscar disciplina:', error);
-      res.status(500).json({ error: 'Erro ao buscar dados do banco de dados.' });
-    }
-  },
+ },
 
   // Rota para deletar uma disciplina
   delete: async (req, res) => {
@@ -362,6 +339,29 @@ export const subjectController = {
     } catch (error) {
       console.error('Erro ao atualizar disciplinas do professor:', error);
       res.status(500).json({ error: 'Erro ao atualizar disciplinas do professor.' });
+    }
+  },
+
+  // Rota para buscar uma disciplina específica por ID
+  getById: async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      const [rows] = await req.db.execute(`
+        SELECT s.*, p.full_name as teacher_name
+        FROM subjects s
+        LEFT JOIN profiles p ON s.teacher_id = p.user_id
+        WHERE s.id = ?
+      `, [id]);
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Disciplina não encontrada.' });
+      }
+
+      res.status(200).json(rows[0]);
+    } catch (error) {
+      console.error('Erro ao buscar disciplina por ID:', error);
+      res.status(500).json({ error: 'Erro ao buscar disciplina.' });
     }
   },
 
