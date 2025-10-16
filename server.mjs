@@ -83,20 +83,8 @@ app.post('/api/auth/login', authController.login);
 app.get('/api/auth/me', requireAuth, authController.getMe);
 app.post('/api/auth/logout', authController.logout);
 
-// Rotas de atividades
-app.get('/api/activities/student', requireAuth, requireStudent, getActivitiesByStudent);
-app.get('/api/activities/teacher/:teacherId', requireAuth, requireTeacher, getActivitiesByTeacher);
-app.get('/api/activities/subject/:subjectId', requireAuth, getActivitiesBySubject);
-app.get('/api/activities/:id/grades', requireAuth, requireTeacher, getActivityGrades);
-app.get('/api/activities/:id', requireAuth, getActivityById);
-app.post('/api/activities', requireAuth, requireTeacher, transactionMiddleware, createActivity);
-app.put('/api/activities/:id', requireAuth, requireTeacher, transactionMiddleware, updateActivity);
-app.delete('/api/activities/:id', requireAuth, requireTeacher, transactionMiddleware, deleteActivity);
-app.post('/api/activities/student-activities', requireAuth, requireStudent, transactionMiddleware, submitStudentActivity);
-app.put('/api/activities/activity-grades/:id', requireAuth, requireTeacher, transactionMiddleware, updateActivityGrade);
-app.post('/api/activities/activity-grades', requireAuth, requireTeacher, transactionMiddleware, createActivityGrade);
-app.delete('/api/activities/activity-grades/:id', requireAuth, requireTeacher, transactionMiddleware, deleteActivityGrade);
-app.get('/api/activities/student/grades', requireAuth, requireStudent, getActivityGradesByStudent);
+// Rotas de atividades - removido duplicatas, agora usamos apenas o arquivo de rotas modular
+// As rotas agora são gerenciadas pelo arquivo src/routes/activities.js
 
 // Importar rotas modulares
 import subjectRoutes from './src/routes/subjects.js';
