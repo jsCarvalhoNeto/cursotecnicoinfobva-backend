@@ -3,34 +3,41 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Detectar se estamos no Railway ou localmente
-const isRailway = process.env.NODE_ENV === 'production' && process.env.DB_HOST?.includes('railway.internal');
+// Função para parsear a DATABASE_URL e extrair os componentes
+function parseDatabaseUrl(databaseUrl) {
+  try {
+    const url = new URL(databaseUrl);
+    return {
+      host: url.hostname,
+      port: url.port || '3306', // MySQL default port
+      user: url.username,
+      password: url.password,
+      database: url.pathname.substring(1) // Remove the leading '/'
+    };
+  } catch (error) {
+    console.error('Erro ao parsear DATABASE_URL:', error);
+    throw new Error('Formato inválido de DATABASE_URL');
+  }
+}
 
-// Configuração da conexão para teste com variáveis de produção do Railway
-const dbConfig = {
- host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || (isRailway ? 'root' : 'root'),
-  password: process.env.DB_PASSWORD || (isRailway ? 'hKqzfPhyDJLAJujRUPjZebecKknlbMVN' : ''),
-  database: process.env.DB_NAME || (isRailway ? 'railway' : 'josedo64_sisctibalbina'),
-  port: parseInt(process.env.DB_PORT) || (isRailway ? 3306 : 3306),
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-  connectTimeout: 60000,
-  multipleStatements: true,
-  timezone: 'Z',
-  charset: 'utf8mb4',
-  insecureAuth: true,
-  supportBigNumbers: true,
-  bigNumberStrings: true
-};
-
-console.log('🔍 Testando conexão com o banco de dados...');
-console.log('Environment:', process.env.NODE_ENV || 'development');
-console.log('Is Railway?', isRailway);
-console.log('Host:', dbConfig.host);
-console.log('User:', dbConfig.user);
-console.log('Database:', dbConfig.database);
-console.log('Port:', dbConfig.port);
-console.log('SSL:', dbConfig.ssl ? 'enabled' : 'disabled');
+// Configuração da conexão usando DATABASE_URL ou variáveis separadas
+const dbConfig = process.env.DATABASE_URL 
+  ? parseDatabaseUrl(process.env.DATABASE_URL)
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'josedo64_sisctibalbina',
+      port: parseInt(process.env.DB_PORT) || 3306,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      connectTimeout: 6000,
+      multipleStatements: true,
+      timezone: 'Z',
+      charset: 'utf8mb4',
+      insecureAuth: true,
+      supportBigNumbers: true,
+      bigNumberStrings: true
+    };
 
 async function testConnection() {
   let connection;
@@ -65,12 +72,6 @@ async function testConnection() {
     console.error('❌ Erro na conexão:', error.message);
     console.error('Código do erro:', error.code);
     console.error('Número do erro:', error.errno);
-    
-    // Para Railway, o erro ENOTFOUND é esperado localmente
-    if (error.code === 'ENOTFOUND' && isRailway) {
-      console.log('ℹ️  Erro esperado localmente - o hostname do Railway só existe no ambiente do Railway');
-      console.log('✅ Configurações estão corretas para o Railway!');
-    }
     
     if (connection) {
       try {

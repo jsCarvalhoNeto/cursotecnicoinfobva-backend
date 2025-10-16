@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { parseDatabaseUrl } from '../lib/utils.js';
 
 dotenv.config();
 
@@ -14,12 +15,14 @@ export const requireAuth = async (req, res, next) => {
     if (req.dbType === 'mysql') {
       // Lógica para MySQL real
       const db = await import('mysql2/promise');
-      const dbConfig = {
-        host: process.env.DB_HOST || 'localhost',
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || 'informatica_wave'
-      };
+      const dbConfig = process.env.DATABASE_URL 
+        ? parseDatabaseUrl(process.env.DATABASE_URL)
+        : {
+            host: process.env.DB_HOST || 'localhost',
+            user: process.env.DB_USER || 'root',
+            password: process.env.DB_PASSWORD || '',
+            database: process.env.DB_NAME || 'informatica_wave'
+          };
       
       const connection = await db.default.createConnection(dbConfig);
       try {
@@ -137,12 +140,14 @@ export const checkResourceAccess = (resourceType) => {
       if (req.dbType === 'mysql') {
         // Lógica para MySQL real
         const db = await import('mysql2/promise');
-        const dbConfig = {
-          host: process.env.DB_HOST || 'localhost',
-          user: process.env.DB_USER || 'root',
-          password: process.env.DB_PASSWORD || '',
-          database: process.env.DB_NAME || 'informatica_wave'
-        };
+        const dbConfig = process.env.DATABASE_URL 
+          ? parseDatabaseUrl(process.env.DATABASE_URL)
+          : {
+              host: process.env.DB_HOST || 'localhost',
+              user: process.env.DB_USER || 'root',
+              password: process.env.DB_PASSWORD || '',
+              database: process.env.DB_NAME || 'informatica_wave'
+            };
         
         const connection = await db.default.createConnection(dbConfig);
         try {

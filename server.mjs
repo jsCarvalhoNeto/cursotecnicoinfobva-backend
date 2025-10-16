@@ -47,15 +47,21 @@ app.get('*', (req, res) => {
 });
 
 // Configuração da conexão com o banco de dados
+import { parseDatabaseUrl } from './src/lib/utils.js';
+
+console.log('DATABASE_URL configurado:', !!process.env.DATABASE_URL);
 console.log('Banco de dados configurado:', process.env.DB_NAME);
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '', // Senha vazia para phpMyAdmin
-  database: process.env.DB_NAME || 'josedo64_sisctibalbina',
-  port: process.env.DB_PORT || 3306,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
-};
+
+const dbConfig = process.env.DATABASE_URL 
+  ? parseDatabaseUrl(process.env.DATABASE_URL)
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '', // Senha vazia para phpMyAdmin
+      database: process.env.DB_NAME || 'josedo64_sisctibalbina',
+      port: process.env.DB_PORT || 3306,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+    };
 
 // Rota de teste
 app.get('/api', (req, res) => {
