@@ -608,28 +608,59 @@ export const getActivitiesByStudent = async (req, res) => {
 
     // Buscar atividades para todas as disciplinas do aluno
     // Incluir também informações sobre submissões e notas para determinar o status
-    const activitiesQuery = `
-      SELECT 
-        a.*,
-        p.full_name as teacher_name,
-        s.name as subject_name,
-        ag.grade as student_grade,
-        ag.graded_at as grade_date,
-        CASE 
-          WHEN ag.grade IS NOT NULL THEN 'completed'
-          WHEN ag.grade IS NULL AND ag.student_name IS NOT NULL THEN 'submitted'
-          ELSE 'pending'
-        END as status
-      FROM activities a
-      JOIN users u ON a.teacher_id = u.id
-      JOIN profiles p ON u.id = p.user_id
-      JOIN subjects s ON a.subject_id = s.id
-      LEFT JOIN enrollments e ON e.student_id = ? AND e.subject_id = a.subject_id
-      LEFT JOIN activity_grades ag ON ag.activity_id = a.id AND ag.enrollment_id = e.id
-      WHERE a.subject_id IN (${subjectIds.map(() => '?').join(',')})
-      ORDER BY a.created_at DESC
-    `;
-    const [activitiesResult] = await req.db.execute(activitiesQuery, [student_id, ...subjectIds]);
+    let activitiesQuery = '';
+    let activitiesParams = [];
+    
+    if (subjectIds.length > 0) {
+      activitiesQuery = `
+        SELECT 
+          a.*,
+          p.full_name as teacher_name,
+          s.name as subject_name,
+          ag.grade as student_grade,
+          ag.graded_at as grade_date,
+          CASE 
+            WHEN ag.grade IS NOT NULL THEN 'completed'
+            WHEN ag.grade IS NULL AND ag.student_name IS NOT NULL THEN 'submitted'
+            ELSE 'pending'
+          END as status
+        FROM activities a
+        JOIN users u ON a.teacher_id = u.id
+        JOIN profiles p ON u.id = p.user_id
+        JOIN subjects s ON a.subject_id = s.id
+        LEFT JOIN enrollments e ON e.student_id = ? AND e.subject_id = a.subject_id
+        LEFT JOIN activity_grades ag ON ag.activity_id = a.id AND ag.enrollment_id = e.id
+        WHERE a.subject_id IN (${subjectIds.map(() => '?').join(',')})
+        ORDER BY a.created_at DESC
+      `;
+      activitiesParams = [student_id, ...subjectIds];
+    } else {
+      // Se o aluno não está matriculado em nenhuma disciplina, retornar array vazio
+      activitiesQuery = `
+        SELECT 
+          a.*,
+          p.full_name as teacher_name,
+          s.name as subject_name,
+          ag.grade as student_grade,
+          ag.graded_at as grade_date,
+          CASE 
+            WHEN ag.grade IS NOT NULL THEN 'completed'
+            WHEN ag.grade IS NULL AND ag.student_name IS NOT NULL THEN 'submitted'
+            ELSE 'pending'
+          END as status
+        FROM activities a
+        JOIN users u ON a.teacher_id = u.id
+        JOIN profiles p ON u.id = p.user_id
+        JOIN subjects s ON a.subject_id = s.id
+        LEFT JOIN enrollments e ON e.student_id = ? AND e.subject_id = a.subject_id
+        LEFT JOIN activity_grades ag ON ag.activity_id = a.id AND ag.enrollment_id = e.id
+        WHERE 1=0  -- Nenhuma condição verdadeira, retorna vazio
+        ORDER BY a.created_at DESC
+      `;
+      activitiesParams = [student_id];
+    }
+    
+    const [activitiesResult] = await req.db.execute(activitiesQuery, activitiesParams);
     console.log('Atividades encontradas:', activitiesResult.length);
 
     res.json(activitiesResult);
