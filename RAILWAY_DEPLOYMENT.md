@@ -17,11 +17,12 @@ Se você estiver usando o serviço MySQL do Railway:
 ```
 DB_HOST=mysql.railway.internal
 DB_USER=root
-DB_PASSWORD=sua_senha_do_railway
+DB_PASSWORD=hKqzfPhyDJLAJujRUPjZebecKknlbMVN
 DB_NAME=railway
-DB_PORT=3306
+PORT=2540
 NODE_ENV=production
-PORT=8080
+CORS_ORIGIN=https://cursotecnicoinfobva-frontend-production.up.railway.app
+TRUST_PROXY=true
 ```
 
 ## Script de Inicialização
@@ -46,13 +47,6 @@ https://*.railway.app
 https://*.up.railway.app
 ```
 
-### Proxy do Railway
-O backend já está configurado para lidar com o proxy reverso do Railway, incluindo:
-
-- URLs com barras duplicadas (ex: `//api/auth/me` -> `/api/auth/me`)
-- Domínios combinados do proxy
-- Headers de proxy reverso
-
 ## Troubleshooting
 
 ### Banco de dados mockado sendo usado
@@ -63,13 +57,17 @@ Se o log mostrar "Usando banco de dados mockado", verifique:
 3. **Script de inicialização**: Confirme que está usando `npm start` e não `npm run dev`
 
 ### URLs com barras duplicadas
-Se o frontend mostrar erros como `//api/auth/me` (com duas barras), o backend já corrige isso automaticamente com middleware de proxy.
+Se o frontend mostrar erros como `//api/auth/me` (com duas barras), isso foi resolvido com as seguintes correções:
 
-### Rotas 404
-Se as rotas de autenticação retornarem 404, verifique:
-1. Se o script de inicialização está correto
-2. Se as variáveis de ambiente estão configuradas
-3. Os logs do backend para identificar problemas de parsing de URL
+1. **Frontend**: Atualizado `api.ts` para garantir que não haja barra final no `baseURL`
+2. **Backend**: Configurado para servir rotas tanto com quanto sem prefixo `/api` para manter compatibilidade
+
+### Rotas 404 no módulo estudante
+Se as rotas `/subjects` e `/activities/student` retornarem 404 apenas no módulo estudante no Railway, isso foi resolvido com:
+
+1. **Padronização de rotas**: Agora todas as rotas principais estão disponíveis tanto com quanto sem prefixo `/api` no backend
+2. **Correção no frontend**: Garantido que não haja conflito de URLs com dupla barra
+3. **Configuração do frontend**: Usar `VITE_API_URL=https://cursotecnicoinfobva-backend-production.up.railway.app/api` no ambiente de produção
 
 ### Host bloqueado no frontend (Vite)
 Se aparecer "Blocked request. This host is not allowed", verifique o `vite.config.ts`:
@@ -77,12 +75,10 @@ Se aparecer "Blocked request. This host is not allowed", verifique o `vite.confi
 - Domínios comuns: `.railway.app`, `.up.railway.app`
 
 ### Logs úteis
-O middleware de banco de dados e proxy mostram logs detalhados como:
+O middleware de banco de dados mostra logs detalhados como:
 - `🔍 Debug - Variáveis de ambiente do banco de dados`
 - `📡 Configuração de conexão final`
 - `🔌 Tentando conectar ao MySQL`
-- `🔄 Proxy Global - URL original:` e `URL corrigida:`
-- `💡 Dica:` - mensagens com sugestões de correção
 
 ## Estrutura do Banco de Dados
 
@@ -117,6 +113,7 @@ Antes de fazer o deploy:
 - [ ] Variáveis de ambiente configuradas corretamente
 - [ ] Script de inicialização definido como `npm start`
 - [ ] Banco de dados MySQL ativo e configurado
+- [ ] Frontend configurado com URL do backend com prefixo `/api`
 - [ ] Verificar logs após deploy para confirmar conexão com banco de dados
 
 ## Problemas Comuns e Soluções
@@ -129,9 +126,10 @@ Se o frontend mostrar este erro, pode ser necessário instalar o plugin `@vitejs
 2. Atualize o `vite.config.ts` para importar e usar `@vitejs/plugin-react` em vez de `@vitejs/plugin-react-swc`
 3. Rebuild o projeto para produção
 
-### Rotas retornando 404 no Railway
-Se rotas como `/subjects` retornarem 404, pode ser devido ao middleware de proxy do Railway interferindo nas rotas normais. O middleware foi otimizado para corrigir apenas os casos específicos de problemas comuns e não interferir nas rotas normais da API.
+### Rotas retornando 404 no Railway - Problema Resolvido
+O problema de rotas como `/subjects` e `/activities/student` retornando 404 apenas no módulo estudante no Railway foi resolvido com:
 
-**Solução:**
-- O middleware de proxy agora é mais seletivo e apenas corrige os padrões específicos de URLs problemáticas
-- Rotas normais como `/api/subjects` continuam funcionando corretamente
+1. **Compatibilidade total no backend**: Agora todas as rotas principais estão disponíveis tanto com quanto sem prefixo `/api` para garantir funcionamento em ambos ambientes
+2. **Correção de dupla barra no frontend**: Atualizado o serviço de API para evitar URLs com `//`
+3. **Configuração**: O frontend deve usar `VITE_API_URL` com o sufixo `/api` para ambiente de produção, mas as rotas funcionam em ambos formatos
+4. **Manutenção de compatibilidade**: Tanto `/api/subjects` quanto `/subjects` funcionam para manter ambos ambientes operacionais

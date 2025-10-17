@@ -81,7 +81,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 // Middleware de conexão com banco de dados
 app.use(dbConnectionMiddleware);
 
-// Rotas com prefixo /api (padrão para novas integrações)
+// Rotas com prefixo /api (padrão para novos clientes e Railway)
 app.use('/api', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
@@ -91,6 +91,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/content', contentRoutes);
 
 // Rotas sem prefixo /api (para compatibilidade com frontend existente)
+// Mantido para garantir que ambos ambientes funcionem corretamente
 app.use('/', authRoutes);
 app.use('/students', studentRoutes);
 app.use('/teachers', teacherRoutes);
