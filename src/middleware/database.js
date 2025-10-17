@@ -101,14 +101,34 @@ export const transactionMiddleware = async (req, res, next) => {
     transactionFinished = true;
 
     try {
-      if (req.dbType === 'mysql') {
-        // Operações para MySQL real
+      if (req.dbType === 'mysql' && req.db && !req.db.destroyed) {
+        // Operações para MySQL real - verificar se a conexão ainda está ativa
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          await req.db?.commit();
+          try {
+            await req.db.commit();
+          } catch (commitError) {
+            console.error('Erro ao fazer commit:', commitError);
+            try {
+              await req.db.rollback();
+            } catch (rollbackError) {
+              console.error('Erro ao fazer rollback:', rollbackError);
+            }
+          }
         } else {
-          await req.db?.rollback();
+          try {
+            await req.db.rollback();
+          } catch (rollbackError) {
+            console.error('Erro ao fazer rollback:', rollbackError);
+          }
         }
-        await req.db?.end();
+        try {
+          await req.db.end();
+        } catch (endError) {
+          console.error('Erro ao fechar conexão:', endError);
+        }
+      } else if (req.dbType === 'mysql') {
+        // Se a conexão já está destruída, apenas logar o erro
+        console.error('Tentativa de operação em conexão de banco de dados fechada para:', req.method, req.path);
       } else {
         // Para mock, não há transações reais
         console.log('Operações mockadas concluídas');

@@ -4,13 +4,10 @@ import { transactionMiddleware } from '../middleware/database.js';
 
 const router = express.Router();
 
-// Aplicar middleware de transação
-router.use(transactionMiddleware);
-
-// Rota para atualizar o papel de um usuário
-router.put('/:id/role', userController.updateRole);
-
-// Rota para buscar todos os usuários (com seus papéis)
+// Rota para buscar todos os usuários (com seus papéis) - não precisa de transação
 router.get('/', userController.getAll);
+
+// Rota que precisa de transação para operação de escrita
+router.put('/:id/role', transactionMiddleware, userController.updateRole);
 
 export default router;

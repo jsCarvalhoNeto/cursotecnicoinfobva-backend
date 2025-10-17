@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import { parseDatabaseUrl } from '../lib/utils.js';
 
 dotenv.config();
 
@@ -13,40 +12,25 @@ export const requireAuth = async (req, res, next) => {
 
   try {
     if (req.dbType === 'mysql') {
-      // Lógica para MySQL real
-      const db = await import('mysql2/promise');
-      const dbConfig = process.env.DATABASE_URL 
-        ? parseDatabaseUrl(process.env.DATABASE_URL)
-        : {
-            host: process.env.DB_HOST || 'localhost',
-            user: process.env.DB_USER || 'root',
-            password: process.env.DB_PASSWORD || '',
-            database: process.env.DB_NAME || 'informatica_wave'
-          };
+      // Usar a conexão existente do req.db (que já está em uma transação)
+      // Verificar se o usuário existe e tem papéis atribuídos
+      const [users] = await req.db.execute('SELECT id FROM users WHERE id = ?', [sessionId]);
       
-      const connection = await db.default.createConnection(dbConfig);
-      try {
-        // Verificar se o usuário existe e tem papéis atribuídos
-        const [users] = await connection.execute('SELECT id FROM users WHERE id = ?', [sessionId]);
-        
-        if (users.length === 0) {
-          return res.status(401).json({ error: 'Sessão inválida' });
-        }
-        
-        // Verificar se o usuário tem pelo menos um papel atribuído
-        const [roles] = await connection.execute('SELECT role FROM user_roles WHERE user_id = ?', [sessionId]);
-        
-        if (roles.length === 0) {
-          return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
-        }
-        
-        req.userId = sessionId;
-        req.userRoles = roles.map(role => role.role);
-        req.userRole = roles[0].role;
-        next();
-      } finally {
-        await connection.end();
+      if (users.length === 0) {
+        return res.status(401).json({ error: 'Sessão inválida' });
       }
+      
+      // Verificar se o usuário tem pelo menos um papel atribuído
+      const [roles] = await req.db.execute('SELECT role FROM user_roles WHERE user_id = ?', [sessionId]);
+      
+      if (roles.length === 0) {
+        return res.status(403).json({ error: 'Usuário não tem permissão - nenhum papel atribuído' });
+      }
+      
+      req.userId = sessionId;
+      req.userRoles = roles.map(role => role.role);
+      req.userRole = roles[0].role;
+      next();
     } else {
       // Lógica para banco de dados mockado
       const user = req.db.getUserById(sessionId);
@@ -138,77 +122,62 @@ export const checkResourceAccess = (resourceType) => {
 
     try {
       if (req.dbType === 'mysql') {
-        // Lógica para MySQL real
-        const db = await import('mysql2/promise');
-        const dbConfig = process.env.DATABASE_URL 
-          ? parseDatabaseUrl(process.env.DATABASE_URL)
-          : {
-              host: process.env.DB_HOST || 'localhost',
-              user: process.env.DB_USER || 'root',
-              password: process.env.DB_PASSWORD || '',
-              database: process.env.DB_NAME || 'informatica_wave'
-            };
-        
-        const connection = await db.default.createConnection(dbConfig);
-        try {
-          let hasAccess = false;
-          let ownerCheckQuery = '';
-          let queryParams = [];
+        // Usar a conexão existente do req.db (que já está em uma transação)
+        let hasAccess = false;
+        let ownerCheckQuery = '';
+        let queryParams = [];
 
-          switch (resourceType) {
-            case 'activity':
-              // Verificar se a atividade pertence ao professor ou se o aluno está matriculado na disciplina
-              if (userRoles.includes('teacher')) {
-                ownerCheckQuery = 'SELECT id FROM activities WHERE id = ? AND teacher_id = ?';
-                queryParams = [resourceId, userId];
-              } else if (userRoles.includes('student')) {
-                ownerCheckQuery = `
-                  SELECT ag.id 
-                  FROM activity_grades ag
-                  JOIN enrollments e ON ag.enrollment_id = e.id
-                  WHERE ag.activity_id = ? AND e.student_id = ?
-                `;
-                queryParams = [resourceId, userId];
-              }
-              break;
-            case 'activity_grade':
-              // Verificar se a nota está associada a uma atividade do professor ou a um aluno
-              if (userRoles.includes('teacher')) {
-                ownerCheckQuery = `
-                  SELECT ag.id
-                  FROM activity_grades ag
-                  JOIN enrollments e ON ag.enrollment_id = e.id
-                  JOIN activities a ON e.subject_id = a.subject_id
-                  WHERE ag.id = ? AND a.teacher_id = ?
-                `;
-                queryParams = [resourceId, userId];
-              } else if (userRoles.includes('student')) {
-                ownerCheckQuery = `
-                  SELECT ag.id
-                  FROM activity_grades ag
-                  JOIN enrollments e ON ag.enrollment_id = e.id
-                  WHERE ag.id = ? AND e.student_id = ?
-                `;
-                queryParams = [resourceId, userId];
-              }
-              break;
-            default:
-              return res.status(400).json({ error: 'Tipo de recurso inválido' });
-          }
-
-          if (ownerCheckQuery) {
-            const [result] = await connection.execute(ownerCheckQuery, queryParams);
-            hasAccess = result.length > 0;
-          }
-
-          if (!hasAccess) {
-            return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para acessar este recurso' });
-          }
-
-          next();
-        } finally {
-          await connection.end();
+        switch (resourceType) {
+          case 'activity':
+            // Verificar se a atividade pertence ao professor ou se o aluno está matriculado na disciplina
+            if (userRoles.includes('teacher')) {
+              ownerCheckQuery = 'SELECT id FROM activities WHERE id = ? AND teacher_id = ?';
+              queryParams = [resourceId, userId];
+            } else if (userRoles.includes('student')) {
+              ownerCheckQuery = `
+                SELECT ag.id 
+                FROM activity_grades ag
+                JOIN enrollments e ON ag.enrollment_id = e.id
+                WHERE ag.activity_id = ? AND e.student_id = ?
+              `;
+              queryParams = [resourceId, userId];
+            }
+            break;
+          case 'activity_grade':
+            // Verificar se a nota está associada a uma atividade do professor ou a um aluno
+            if (userRoles.includes('teacher')) {
+              ownerCheckQuery = `
+                SELECT ag.id
+                FROM activity_grades ag
+                JOIN enrollments e ON ag.enrollment_id = e.id
+                JOIN activities a ON e.subject_id = a.subject_id
+                WHERE ag.id = ? AND a.teacher_id = ?
+              `;
+              queryParams = [resourceId, userId];
+            } else if (userRoles.includes('student')) {
+              ownerCheckQuery = `
+                SELECT ag.id
+                FROM activity_grades ag
+                JOIN enrollments e ON ag.enrollment_id = e.id
+                WHERE ag.id = ? AND e.student_id = ?
+              `;
+              queryParams = [resourceId, userId];
+            }
+            break;
+          default:
+            return res.status(400).json({ error: 'Tipo de recurso inválido' });
         }
+
+        if (ownerCheckQuery) {
+          const [result] = await req.db.execute(ownerCheckQuery, queryParams);
+          hasAccess = result.length > 0;
+        }
+
+        if (!hasAccess) {
+          return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para acessar este recurso' });
+        }
+
+        next();
       } else {
         // Para mock, vamos permitir acesso básico (você pode implementar lógica mais complexa se necessário)
         // Por enquanto, vamos assumir que o usuário tem permissão básica

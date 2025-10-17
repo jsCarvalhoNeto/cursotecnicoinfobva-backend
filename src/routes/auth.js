@@ -5,19 +5,12 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Aplicar middleware de transação
-router.use(transactionMiddleware);
-
-// Rota para cadastro de novo usuário
-router.post('/auth/register', authController.register);
-
-// Rota para login de usuário
-router.post('/auth/login', authController.login);
-
-// Rota para obter informações do usuário atual (baseado na sessão)
+// Rota para obter informações do usuário atual (baseado na sessão) - não precisa de transação
 router.get('/auth/me', requireAuth, authController.getMe);
 
-// Rota para logout
-router.post('/auth/logout', authController.logout);
+// Rotas que precisam de transação para operações de escrita
+router.post('/auth/register', transactionMiddleware, authController.register);
+router.post('/auth/login', transactionMiddleware, authController.login);
+router.post('/auth/logout', transactionMiddleware, authController.logout);
 
 export default router;
